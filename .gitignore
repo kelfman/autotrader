@@ -1,0 +1,18 @@
+# API keys
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# Data cache (large parquet files)
+data_cache/
+
+# Strategy backup (transient)
+strategy.py.bak
+
+# Virtual envs
+.venv/
+venv/
