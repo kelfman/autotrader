@@ -63,6 +63,13 @@ if _env_path.exists():
 from agent import StrategySpec, propose_modification, propose_modification_local
 from data import fetch_ohlcv
 from evaluate import FitnessResult, evaluate_strategy
+from oversight import (
+    ComplianceFlag,
+    DirectionReview,
+    load_other_track_strategies,
+    run_compliance_checks,
+    run_direction_review,
+)
 from track_config import TrackConfig
 
 log = logging.getLogger(__name__)
@@ -216,6 +223,8 @@ def _build_log_entry(
     fitness_result: FitnessResult,
     note: str = "",
     track_config: TrackConfig | None = None,
+    compliance_flags: list[ComplianceFlag] | None = None,
+    pi_review: DirectionReview | None = None,
 ) -> dict:
     entry: dict = {
         "iteration":      iteration,
@@ -233,9 +242,39 @@ def _build_log_entry(
     if track_config is not None:
         entry["track_id"] = track_config.track_id
         entry["signal_class"] = track_config.signal_class
+    if compliance_flags:
+        entry["compliance_flags"] = [f.to_dict() for f in compliance_flags]
+    if pi_review is not None:
+        entry["pi_review"] = pi_review.to_dict()
     if note:
         entry["note"] = note
     return entry
+
+
+# ── Seed strategy reset (§5.12.5 — reset_to_seed action) ─────────────────────
+
+def _reset_to_seed(strategy_path: Path, track_config: TrackConfig) -> None:
+    """
+    Reset strategy.py to the initial seed strategy for a track.
+
+    Used by the PI review's reset_to_seed action when drift is severe.
+    Does NOT clear the experiment log (history is preserved as provenance).
+    """
+    from track_runner import _INITIAL_STRATEGY_GENERIC
+
+    if track_config.track_id == "E":
+        root_strategy = Path(__file__).parent / "strategy.py"
+        if root_strategy.exists() and root_strategy != strategy_path:
+            shutil.copy(root_strategy, strategy_path)
+        log.info("Reset Track E to V1 root strategy.py")
+    else:
+        content = _INITIAL_STRATEGY_GENERIC.format(
+            track_id=track_config.track_id,
+            description=track_config.description,
+            signal_class=track_config.signal_class,
+        )
+        strategy_path.write_text(content)
+        log.info("Reset Track %s to initial seed strategy", track_config.track_id)
 
 
 # ── Research loop ─────────────────────────────────────────────────────────────
@@ -304,6 +343,15 @@ def run_loop(
         log.info("Target fitness : %+.4f", target_fitness)
     log.info("Plateau stop   : window=%d  threshold=%.4f", plateau_window, plateau_threshold)
 
+    # Oversight state (§5.12)
+    review_interval = track_config.review_interval if track_config else 0
+    if review_interval > 0:
+        log.info("Oversight      : review every %d iterations", review_interval)
+    course_correction: str | None = None
+    force_structural_next = False
+    killed = False
+    remaining_budget = n_iterations
+
     # ── pre-fetch data ────────────────────────────────────────────────────────
     log.info("\nPre-fetching 2 years of %s 1h candles…", symbol)
     df = fetch_ohlcv(symbol, "1h", days=730)
@@ -332,6 +380,10 @@ def run_loop(
 
     # ── iteration loop ────────────────────────────────────────────────────────
     for i in range(start_iter, start_iter + n_iterations):
+        if killed:
+            log.info("Track killed by PI review — stopping.")
+            break
+
         _print_banner(f"Iteration {i}  (fitness so far: {current_fitness:+.4f})", width=50)
 
         history = load_history(n=history_window, log_path=_log_path)
@@ -369,10 +421,16 @@ def run_loop(
                     experiment_history=history,
                     model=model,
                     track_config=track_config,
+                    iteration_number=i,
+                    course_correction=course_correction,
                 )
         except Exception as exc:
             log.error("Agent error in iteration %d: %s — skipping", i, exc)
             continue
+
+        # Clear one-shot course correction after it's been delivered
+        course_correction = None
+        force_structural_next = False
 
         log.info("[%s] %s", spec.change_type.upper(), spec.rationale)
 
@@ -430,17 +488,110 @@ def run_loop(
                 fitness_before, new_fitness, delta,
             )
 
+        # ── Layer 2: compliance checks (§5.12.4) ─────────────────────────────
+        iter_flags: list[ComplianceFlag] = []
+        iter_review: DirectionReview | None = None
+
+        if track_config is not None and track_config.primary_signal_requirement:
+            current_source = _strategy_path.read_text()
+            other_strategies = load_other_track_strategies(track_config.track_id)
+            recent_log = load_history(n=10, log_path=_log_path)
+
+            iter_flags = run_compliance_checks(
+                strategy_source=current_source,
+                config=track_config,
+                log_entries=recent_log,
+                other_track_strategies=other_strategies,
+            )
+
+        # ── Layer 3: direction review (§5.12.5) ──────────────────────────────
+        iters_since_start = i - start_iter + 1
+        if (
+            track_config is not None
+            and review_interval > 0
+            and agent_mode == "api"
+            and iters_since_start > 0
+            and iters_since_start % review_interval == 0
+        ):
+            try:
+                review_history = load_history(n=review_interval, log_path=_log_path)
+                iter_review = run_direction_review(
+                    strategy_source=_strategy_path.read_text(),
+                    config=track_config,
+                    log_entries=review_history,
+                    compliance_flags=iter_flags,
+                )
+
+                action = iter_review.recommended_action
+
+                if action == "reset_to_seed":
+                    log.warning(
+                        "PI REVIEW: reset_to_seed — reverting to initial strategy"
+                    )
+                    _reset_to_seed(_strategy_path, track_config)
+                    # Re-evaluate after reset
+                    compute_signals, params = load_strategy_module(strategy_path=_strategy_path)
+                    reset_result = evaluate_strategy(
+                        compute_signals, params,
+                        symbol=symbol, lambda_penalty=lambda_penalty, df=df,
+                    )
+                    current_fitness = reset_result.fitness
+                    log.info("Post-reset fitness: %+.4f", current_fitness)
+
+                    # Log the reset event
+                    reset_spec = StrategySpec(
+                        change_type="structural",
+                        rationale=f"PI reset_to_seed: {iter_review.drift_diagnosis[:200]}",
+                        params=params,
+                    )
+                    append_log(
+                        _build_log_entry(
+                            iteration=i, accepted=False,
+                            fitness_before=fitness_before, fitness_after=current_fitness,
+                            spec=reset_spec, fitness_result=reset_result,
+                            note="pi_reset",
+                            track_config=track_config,
+                            pi_review=iter_review,
+                        ),
+                        log_path=_log_path,
+                    )
+
+                if action in ("reset_to_seed", "force_structural"):
+                    course_correction = iter_review.course_correction
+                    force_structural_next = True
+
+                if action == "extend_budget":
+                    remaining_budget += 10
+                    n_iterations += 10
+                    log.info("PI REVIEW: extending budget by 10 iterations")
+
+                if action == "kill_track":
+                    log.warning(
+                        "PI REVIEW: kill_track — %s",
+                        iter_review.drift_diagnosis[:200],
+                    )
+                    killed = True
+
+            except Exception as exc:
+                log.error("Direction review failed: %s — continuing without review", exc)
+
+        # ── log entry ─────────────────────────────────────────────────────────
         append_log(
             _build_log_entry(
                 iteration=i, accepted=accepted,
                 fitness_before=fitness_before, fitness_after=new_fitness,
                 spec=spec, fitness_result=new_result,
                 track_config=track_config,
+                compliance_flags=iter_flags if iter_flags else None,
+                pi_review=iter_review,
             ),
             log_path=_log_path,
         )
 
         # ── stopping conditions ───────────────────────────────────────────────
+
+        if killed:
+            break
 
         # 1. Target fitness reached
         if target_fitness is not None and current_fitness >= target_fitness:

@@ -58,6 +58,16 @@ class TrackConfig(BaseModel):
     exploration_hints: list[str]
     ta_baseline_fitness: float = 0.4714
 
+    # Oversight layer 1 — anti-convergence constraints (§5.12.3)
+    primary_signal_requirement: str = ""
+    forbidden_entry_patterns: list[str] = Field(default_factory=list)
+    max_params: int = 10
+    exploration_phase_iterations: int = 5
+    exploration_phase_instructions: str = ""
+
+    # Oversight layer 3 — direction review interval (§5.12.5)
+    review_interval: int = 5
+
 
 def load_track(path: str | Path) -> TrackConfig:
     """Load a TrackConfig from a JSON file."""

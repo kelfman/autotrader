@@ -19,5 +19,16 @@
     "Day-of-week weighting: track which weekdays have the best win rate historically and use as an entry gate."
   ],
 
-  "ta_baseline_fitness": 0.4714
+  "ta_baseline_fitness": 0.4714,
+
+  "primary_signal_requirement": "Your PRIMARY entry condition MUST be derived from time-of-day or day-of-week patterns. The calendar/session effect IS the signal — not a filter on momentum. Test whether specific hours or days have directionally biased returns.",
+  "forbidden_entry_patterns": [
+    "z-score momentum as the primary entry",
+    "Price > SMA or price > rolling mean as the primary entry",
+    "Any entry condition that would be identical if you removed all hour/dayofweek logic"
+  ],
+  "max_params": 8,
+  "exploration_phase_iterations": 5,
+  "exploration_phase_instructions": "Iterations 1-2: Test raw session effect. Enter at US session open (13:00 UTC), exit at US session close (21:00 UTC). Then try Asian session (01:00-08:00). No momentum filters. Iterations 3-4: Test day-of-week effects. Enter Monday open, exit Friday. Or enter Tue-Thu only. Iteration 5: Test session open momentum — is the first 2-hour price change during US session predictive of the next 6 hours?",
+  "review_interval": 5
 }

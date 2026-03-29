@@ -178,8 +178,17 @@ _V1_PROPOSE_TOOL: dict = {
 
 # ── V2 prompt and tool builders ───────────────────────────────────────────────
 
-def _build_system_prompt(config: TrackConfig) -> str:
-    """Build a track-specific system prompt from a TrackConfig."""
+def _build_system_prompt(
+    config: TrackConfig,
+    iteration_number: int = 0,
+) -> str:
+    """
+    Build a track-specific system prompt from a TrackConfig.
+
+    When iteration_number > 0 and ≤ exploration_phase_iterations, the
+    exploration phase instructions replace the general exploration strategy
+    section. Anti-convergence constraints are always injected when present.
+    """
     libs_str = ", ".join(f"`{lib}`" for lib in config.allowed_libraries)
 
     std_cols = "open, high, low, close, volume (UTC DatetimeIndex)"
@@ -190,6 +199,45 @@ def _build_system_prompt(config: TrackConfig) -> str:
         cols_str = std_cols
 
     hints_str = "\n".join(f"  - {hint}" for hint in config.exploration_hints)
+
+    in_exploration_phase = (
+        config.exploration_phase_iterations > 0
+        and 0 < iteration_number <= config.exploration_phase_iterations
+    )
+
+    # Build the exploration/strategy section depending on phase
+    if in_exploration_phase and config.exploration_phase_instructions:
+        exploration_section = f"""\
+EXPLORATION PHASE (iteration {iteration_number} of {config.exploration_phase_iterations})
+{config.exploration_phase_instructions}"""
+    else:
+        exploration_section = f"""\
+EXPLORATION HINTS FOR THIS TRACK
+{hints_str}
+
+GENERAL EXPLORATION STRATEGY
+  - Study the per-window breakdown: which regimes does the strategy fail in?
+  - If std_sharpe is high: prioritise reducing variance (more conservative filters)
+  - If mean_sharpe is low across all windows: try a structurally different approach
+  - Avoid repeating recently rejected configurations
+  - Alternate between parametric tuning and structural changes to explore broadly
+  - When proposing structural changes, ensure the new logic is internally consistent"""
+
+    # Anti-convergence constraints (Layer 1, §5.12.3)
+    constraints_section = ""
+    if config.primary_signal_requirement:
+        forbidden_str = "\n".join(
+            f"  - {p}" for p in config.forbidden_entry_patterns
+        )
+        constraints_section = f"""
+
+SIGNAL CLASS REQUIREMENTS (MANDATORY)
+{config.primary_signal_requirement}
+
+FORBIDDEN PATTERNS — DO NOT USE:
+{forbidden_str}
+
+PARAMETER BUDGET: Maximum {config.max_params} parameters in PARAMS."""
 
     return f"""\
 You are an algorithmic trading strategy researcher specialising in crypto markets \
@@ -230,16 +278,7 @@ TECHNICAL RULES
   - Long-only — no shorting, no position sizing changes
   - Only import from the explicitly allowed libraries listed above
 
-EXPLORATION HINTS FOR THIS TRACK
-{hints_str}
-
-GENERAL EXPLORATION STRATEGY
-  - Study the per-window breakdown: which regimes does the strategy fail in?
-  - If std_sharpe is high: prioritise reducing variance (more conservative filters)
-  - If mean_sharpe is low across all windows: try a structurally different approach
-  - Avoid repeating recently rejected configurations
-  - Alternate between parametric tuning and structural changes to explore broadly
-  - When proposing structural changes, ensure the new logic is internally consistent"""
+{exploration_section}{constraints_section}"""
 
 
 def _build_propose_tool(config: TrackConfig) -> dict:
@@ -303,6 +342,8 @@ def propose_modification(
     experiment_history: list[dict],
     model: str = "claude-opus-4-6",
     track_config: TrackConfig | None = None,
+    iteration_number: int = 0,
+    course_correction: str | None = None,
 ) -> StrategySpec:
     """
     Call the LLM agent and return a StrategySpec modification proposal.
@@ -315,6 +356,9 @@ def propose_modification(
         model:              Anthropic model to use.
         track_config:       V2 track configuration. If None, uses V1 TA-baseline
                             system prompt (backward compatible).
+        iteration_number:   Current iteration number (used for exploration phase).
+        course_correction:  PI review feedback to inject (§5.12.5). If set,
+                            appended as a mandatory course-correction section.
 
     Returns:
         StrategySpec describing the proposed modification.
@@ -329,7 +373,7 @@ def propose_modification(
     client = anthropic.Anthropic(api_key=api_key)
 
     if track_config is not None:
-        system_prompt = _build_system_prompt(track_config)
+        system_prompt = _build_system_prompt(track_config, iteration_number=iteration_number)
         propose_tool = _build_propose_tool(track_config)
         track_label = f"Track {track_config.track_id} ({track_config.signal_class})"
     else:
@@ -367,6 +411,16 @@ Think step-by-step:
 
 Your goal is to reduce fitness variance across regimes while maintaining or \
 improving mean Sharpe."""
+
+    if course_correction:
+        user_message += f"""
+
+## PI Review — Course Correction (mandatory)
+
+{course_correction}
+
+You MUST address this feedback in your next proposal. Ignoring PI direction \
+will result in the proposal being rejected regardless of fitness."""
 
     log.info("Calling %s [%s] for modification proposal…", model, track_label)
 

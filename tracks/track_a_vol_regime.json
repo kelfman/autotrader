@@ -19,5 +19,16 @@
     "Try vol regime as an EXIT signal rather than entry filter: exit when vol percentile rises sharply above entry-time vol."
   ],
 
-  "ta_baseline_fitness": 0.4714
+  "ta_baseline_fitness": 0.4714,
+
+  "primary_signal_requirement": "Your PRIMARY entry condition MUST use a realized volatility measure (rolling vol, Garman-Klass, or vol percentile rank) as the core decision variable. Momentum (close > SMA) may be a secondary filter only.",
+  "forbidden_entry_patterns": [
+    "z-score of price as the primary entry trigger",
+    "EMA crossover as entry logic",
+    "Close > close.shift(N) as the sole entry condition"
+  ],
+  "max_params": 10,
+  "exploration_phase_iterations": 5,
+  "exploration_phase_instructions": "Iterations 1-5: Test whether vol regime alone has predictive value. Iteration 1: Enter when vol percentile < 0.4 (calm), exit when > 0.7 (turbulent). No momentum filter. Iterations 2-5: Vary the vol calculation (close-to-close vs Garman-Klass), lookback windows, and entry/exit thresholds.",
+  "review_interval": 5
 }

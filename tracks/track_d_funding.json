@@ -19,5 +19,15 @@
     "Funding carry cost: compute cumulative funding paid over N bars since entry as a soft exit trigger."
   ],
 
-  "ta_baseline_fitness": 0.4714
+  "ta_baseline_fitness": 0.4714,
+
+  "primary_signal_requirement": "Your PRIMARY entry/exit filter MUST use the funding_rate column (raw, z-score, or percentile rank). A simple trend filter (close > SMA) may be used as a secondary gate, but funding rate analysis must be the core decision variable.",
+  "forbidden_entry_patterns": [
+    "EMA crossover as the primary entry logic",
+    "Any entry condition that would be identical if the funding_rate column were removed"
+  ],
+  "max_params": 10,
+  "exploration_phase_iterations": 5,
+  "exploration_phase_instructions": "Iterations 1-2: Test raw funding rate effect. Enter when funding is below its rolling median (not crowded), exit when above 90th percentile (extreme crowding). No price filters. Iterations 3-4: Compare z-score vs percentile rank transformations of funding. Iteration 5: Add one simple trend filter to the best-performing variant.",
+  "review_interval": 5
 }

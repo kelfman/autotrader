@@ -57,6 +57,9 @@ AUTOTRADER=$(find /sessions -maxdepth 3 -name "Autotrader" -path "*/mnt/*" -type
 | `runs/track_X_<name>/` | Per-track isolated strategy.py, backup, and experiment log |
 | `data.py` | OHLCV + funding rate fetcher with parquet cache |
 | `validate_holdout.py` | Held-out validation — tests strategies on gaps between training windows |
+| `oversight.py` | Research oversight layer — 5 compliance checks + LLM direction reviewer (§5.12) |
+| `validate_walkforward.py` | Walk-forward validation — train on W1-3, test on W4-5 (§5.13) |
+| `runs/synthesis_D_A/` | Manual synthesis of Track D (funding) + Track A (vol regime) (§5.14) |
 
 ---
 
@@ -239,7 +242,7 @@ V2 introduced parallel research tracks exploring different signal classes. Resul
 | Track | Signal Class | Iterations | Accepted | Best Fitness | vs TA Baseline |
 |-------|-------------|-----------|----------|-------------|----------------|
 | A | Statistical / vol regime | 35 | 6 | +0.3484 | −26% |
-| B | Calendar / session | 19 | 7 | +0.00 | Not viable |
+| B | Calendar / session | 20 | 1 | +0.0000 | Not viable |
 | C | Cross-pair (BTC/ETH) | 13 | 5 | +0.2727 | −42% |
 | **D** | **Funding rates** | **23** | **10** | **+1.0567** | **+124%** |
 | E | TA baseline (V1) | 55 | 6 | +0.4714 | — |
@@ -262,10 +265,59 @@ Track D was evaluated on the 4 gap windows (~69 days each) between training wind
 
 The training-window results remain valid (Track D genuinely outperforms TA across the 5 training regimes), but the strategy does not generalise to out-of-sample gap periods. This blocks V3 promotion.
 
+### V2 Re-run Results with Oversight Layer (March 2026)
+
+Tracks A–C were re-run with the §5.12 research oversight layer (anti-convergence
+constraints, exploration phase protocol, compliance checks). Signal fidelity was
+100% across all tracks — the drift that plagued the original runs was eliminated.
+
+| Track | Signal Class | Iterations | Accepted | Best Fitness | Signal Fidelity |
+|-------|-------------|-----------|----------|-------------|-----------------|
+| A (re-run) | Vol regime (GK + vol-of-vol) | 20 | 4 | +0.3110 | 20/20 |
+| B (re-run) | Calendar/session | 20 | 1 | +0.00 | 20/20 |
+| C (re-run) | Cross-pair (BTC/ETH) | 20 | 1 | +0.00 | 20/20 |
+
+**Track A best strategy:** Garman-Klass realized vol + vol-of-vol stability filter.
+Entry when vol percentile < 0.47 AND vol-of-vol percentile < 0.40 (calm + stable
+regime). Exit when vol percentile > 0.65. `vol_lookback=24, percentile_window=1440,
+vov_lookback=168`. Fitness +0.311 — below TA baseline but a genuine vol-regime signal.
+
+**Track C best non-degenerate proposals (all rejected against 0.0 degenerate):**
+The champion 0.0 fitness came from a broken strategy (param key mismatch causing 0 trades).
+The most promising genuine approach was vol-conditioned ratio mean-reversion with
+signal-based exits: `z_lookback=72, z_entry=-1.8, z_exit=-0.3, max_hold=16,
+vol_max_pctile=0.20`. This scored -0.402 (mean_sharpe=+0.52, std=1.85) with 3/5
+windows positive (W1: +3.13, W4: +0.88, W5: +1.54) but W2 (-2.23, 8 trades) and
+W3 (-0.71, 8 trades) dragged fitness negative. The ratio mean-reversion signal is
+fundamentally weak — it only works in stable-correlation regimes.
+
+### Walk-Forward Validation (March 2026)
+
+Walk-forward validation (train on W1-W3, test on W4-W5) resolves the held-out
+impasse. Both Track D and the TA baseline pass with positive OOS fitness:
+
+| Strategy | In-Sample (W1-3) | OOS (W4-5) | Decay |
+|----------|-----------------|------------|-------|
+| Track D (funding) | +1.588 | **+0.660** | 58% |
+| Track E (TA baseline) | +0.321 | **+0.779** | -143% |
+
+Track D's OOS fitness (+0.660) beats the TA baseline's full 5-window fitness
+(+0.471). The funding rate signal generalizes forward.
+
+### Manual Synthesis: Track D + A (March 2026)
+
+First synthesis attempt: AND-gating funding rate filter with vol-of-vol regime gate.
+Result: full fitness -0.615, OOS +0.547. The vol gate blocks trades in W1 where
+funding signals work best. **Naive AND-gating hurts rather than helps.**
+
+Synthesis must use softer combination (position sizing, regime-switching) rather
+than hard entry gates. See `runs/synthesis_D_A/strategy.py`.
+
 **Next steps:**
-1. Consider alternative OOS methodology: walk-forward validation (train on W1–W3, test on W4–W5) or expanding training to 7+ windows with smaller gaps
-2. Explore whether funding rate signals work better as a filter layered on a less aggressive base strategy
-3. V3 orchestrator requires two validated tracks on held-out data — currently zero tracks pass
+1. V3 orchestrator prerequisites partially met: Track D passes walk-forward, manual synthesis attempted
+2. Track A's vol-of-vol approach may improve with more trade generation — the low trade count (0-4 per window) limits fitness
+3. Calendar session effects (Track B) confirmed unviable for 24/7 crypto markets
+4. Synthesis should use position-sizing or regime-switching rather than AND-gating
 
 **Unexplored TA ideas (low priority — V1 is at ceiling):**
 

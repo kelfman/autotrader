@@ -1,0 +1,14 @@
+{
+    "change_type": "structural",
+    "rationale": "Adaptive weekly calendar trade. Enter Monday US open (hour 13), early exit Tuesday hour 20 if position is underwater (close < entry price via shift(31)). If profitable, hold until Friday hour 13. Asymmetric payoff: small losses in bear weeks (31h hold), large gains in bull weeks (96h hold). ~13 trades per window with variable hold time to reduce negative Sharpe in bear windows.",
+    "params": {
+        "entry_day": 0,
+        "entry_hour": 13,
+        "stop_day": 1,
+        "stop_hour": 20,
+        "final_day": 4,
+        "final_hour": 13,
+        "stop_lookback": 31
+    },
+    "new_signals_code": "def compute_signals(df, params):\n    import pandas as pd\n    import numpy as np\n\n    close = df['close']\n    hour = df.index.hour\n    dow = df.index.dayofweek\n\n    entry_day = int(params['entry_day'])\n    entry_hour = int(params['entry_hour'])\n    stop_day = int(params['stop_day'])\n    stop_hour = int(params['stop_hour'])\n    final_day = int(params['final_day'])\n    final_hour = int(params['final_hour'])\n    stop_lookback = int(params['stop_lookback'])\n\n    is_entry = pd.Series((dow == entry_day) & (hour == entry_hour), index=df.index)\n\n    early_exit_time = pd.Series((dow == stop_day) & (hour == stop_hour), index=df.index)\n    position_losing = close < close.shift(stop_lookback)\n    early_exit = early_exit_time & position_losing\n\n    final_exit = pd.Series((dow == final_day) & (hour == final_hour), index=df.index)\n\n    entries = is_entry.fillna(False)\n    exits = (early_exit | final_exit).fillna(False)\n\n    return entries, exits\n"
+}

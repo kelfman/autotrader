@@ -15,5 +15,12 @@
     "Do NOT propose: ATR trailing stop exits, removing trend_fading, ADX threshold > 22, mean-reversion entries."
   ],
 
-  "ta_baseline_fitness": 0.4714
+  "ta_baseline_fitness": 0.4714,
+
+  "primary_signal_requirement": "",
+  "forbidden_entry_patterns": [],
+  "max_params": 20,
+  "exploration_phase_iterations": 0,
+  "exploration_phase_instructions": "",
+  "review_interval": 0
 }

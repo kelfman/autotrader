@@ -19,5 +19,16 @@
     "Try ETH volume surge as a BTC confirmation signal: abnormal ETH volume (eth_volume > eth_volume.rolling(N).mean() * 1.5) preceding a BTC signal."
   ],
 
-  "ta_baseline_fitness": 0.4714
+  "ta_baseline_fitness": 0.4714,
+
+  "primary_signal_requirement": "Your PRIMARY entry condition MUST use the BTC/ETH price ratio or relative performance as the core signal. Compute ratio = close / eth_close, then derive entry/exit from ratio dynamics (z-score, percentile, direction). Do NOT use BTC momentum as the primary signal with ETH as a minor confirmation.",
+  "forbidden_entry_patterns": [
+    "BTC vol regime as the primary entry (this is Track A)",
+    "BTC z-score momentum as the primary entry with ETH as a boolean gate",
+    "Any entry condition that would be identical if eth_* columns were removed"
+  ],
+  "max_params": 8,
+  "exploration_phase_iterations": 5,
+  "exploration_phase_instructions": "Iteration 1: Pure ratio mean-reversion. ratio = close / eth_close. Enter BTC long when ratio z-score < -1.5 (BTC cheap vs ETH), exit when ratio z-score > 0. No other signals. Iteration 2: Ratio percentile rank instead of z-score. Iteration 3: Relative strength — enter when ETH is outperforming BTC over past N bars (ETH leading = crypto bull). Iteration 4: BTC leads ETH — use BTC 2-4h return as a predictor for ETH. Iteration 5: Add one filter to the best-performing variant.",
+  "review_interval": 5
 }
