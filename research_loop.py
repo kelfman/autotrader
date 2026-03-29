@@ -11,16 +11,31 @@ Implements the self-improving research loop from the project brief:
   6. Re-evaluate → new fitness
   7. Accept if improved, revert to backup if not
   8. Append full record to experiment_log.jsonl
-  9. Repeat for N iterations
+  9. Repeat until a stopping condition is met
+
+Stopping conditions (whichever fires first):
+  --iterations N         Hard budget: stop after N iterations (default 10)
+  --target-fitness F     Stop as soon as fitness ≥ F (default: disabled)
+  --plateau-window W     Stop if the last W *accepted* iterations all improved
+                         fitness by less than --plateau-threshold (default 5)
+  --plateau-threshold T  Minimum meaningful improvement per accepted iteration
+                         (default 0.005)
 
 Usage:
     python research_loop.py                        # 10 iterations on BTC/USDT
     python research_loop.py --iterations 20
+    python research_loop.py --iterations 100 --target-fitness 0.7
+    python research_loop.py --plateau-window 5 --plateau-threshold 0.01
     python research_loop.py --symbol ETH/USDT --iterations 5
     python research_loop.py --verbose              # DEBUG logging
 
+V2: run_loop() accepts optional track_config, path overrides, and df_augment_fn
+    so that track_runner.py can drive isolated per-track research sessions without
+    touching the root strategy.py or experiment_log.jsonl.
+
 Required:
-    ANTHROPIC_API_KEY environment variable must be set.
+    ANTHROPIC_API_KEY environment variable must be set (for --agent-mode api).
+    Not required for --agent-mode local.
 """
 
 from __future__ import annotations
@@ -29,15 +44,26 @@ import argparse
 import importlib.util
 import json
 import logging
+import os
 import re
 import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from agent import StrategySpec, propose_modification
+# Auto-load .env from the project directory so ANTHROPIC_API_KEY is always set
+_env_path = Path(__file__).parent / ".env"
+if _env_path.exists():
+    for _line in _env_path.read_text().splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip())
+
+from agent import StrategySpec, propose_modification, propose_modification_local
 from data import fetch_ohlcv
 from evaluate import FitnessResult, evaluate_strategy
+from track_config import TrackConfig
 
 log = logging.getLogger(__name__)
 
@@ -51,14 +77,18 @@ LOG_PATH       = _ROOT / "experiment_log.jsonl"
 
 # ── Strategy file utilities ───────────────────────────────────────────────────
 
-def load_strategy_module():
+def load_strategy_module(strategy_path: Path | None = None):
     """
     Import strategy.py as a fresh module (bypasses sys.modules cache).
+
+    Args:
+        strategy_path: Path to strategy.py. Defaults to the root STRATEGY_PATH.
 
     Returns:
         (compute_signals, PARAMS) — the strategy function and its parameter dict.
     """
-    spec = importlib.util.spec_from_file_location("_strategy_live", STRATEGY_PATH)
+    path = strategy_path or STRATEGY_PATH
+    spec = importlib.util.spec_from_file_location("_strategy_live", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod.compute_signals, mod.PARAMS
@@ -145,12 +175,13 @@ def _replace_compute_signals(source: str, new_fn_source: str) -> str:
 
 # ── Experiment log ────────────────────────────────────────────────────────────
 
-def load_history(n: int = 20) -> list[dict]:
+def load_history(n: int = 20, log_path: Path | None = None) -> list[dict]:
     """Load the last n entries from experiment_log.jsonl."""
-    if not LOG_PATH.exists():
+    path = log_path or LOG_PATH
+    if not path.exists():
         return []
     entries: list[dict] = []
-    with open(LOG_PATH) as f:
+    with open(path) as f:
         for line in f:
             line = line.strip()
             if line:
@@ -161,15 +192,16 @@ def load_history(n: int = 20) -> list[dict]:
     return entries[-n:]
 
 
-def append_log(entry: dict) -> None:
+def append_log(entry: dict, log_path: Path | None = None) -> None:
     """Append one experiment record to experiment_log.jsonl."""
-    with open(LOG_PATH, "a") as f:
+    path = log_path or LOG_PATH
+    with open(path, "a") as f:
         f.write(json.dumps(entry, default=str) + "\n")
 
 
-def _next_iteration_number() -> int:
+def _next_iteration_number(log_path: Path | None = None) -> int:
     """Return the iteration number for the next experiment (1-indexed, no gaps)."""
-    history = load_history(n=999_999)
+    history = load_history(n=999_999, log_path=log_path)
     if not history:
         return 1
     return max(e.get("iteration", 0) for e in history) + 1
@@ -183,6 +215,7 @@ def _build_log_entry(
     spec: StrategySpec,
     fitness_result: FitnessResult,
     note: str = "",
+    track_config: TrackConfig | None = None,
 ) -> dict:
     entry: dict = {
         "iteration":      iteration,
@@ -197,6 +230,9 @@ def _build_log_entry(
         "has_new_code":   spec.new_signals_code is not None,
         "fitness_result": fitness_result.to_dict(),
     }
+    if track_config is not None:
+        entry["track_id"] = track_config.track_id
+        entry["signal_class"] = track_config.signal_class
     if note:
         entry["note"] = note
     return entry
@@ -210,19 +246,63 @@ def run_loop(
     lambda_penalty: float = 0.5,
     model: str = "claude-opus-4-6",
     history_window: int = 15,
+    target_fitness: float | None = None,
+    plateau_window: int = 5,
+    plateau_threshold: float = 0.005,
+    # V2 additions — all optional, default to V1 behaviour
+    track_config: TrackConfig | None = None,
+    strategy_path: Path | None = None,
+    backup_path: Path | None = None,
+    log_path: Path | None = None,
+    df_augment_fn=None,
+    agent_mode: str = "api",
 ) -> None:
     """
     Run the autonomous strategy research loop.
 
     Args:
-        n_iterations:   Number of propose → evaluate → accept/reject cycles.
-        symbol:         Market symbol for evaluation (e.g. "BTC/USDT").
-        lambda_penalty: λ in fitness = mean(sharpe) − λ × std(sharpe).
-        model:          Anthropic model for the LLM agent.
-        history_window: How many past experiments to include in agent context.
+        n_iterations:      Hard budget — stop after this many iterations.
+        symbol:            Market symbol for evaluation (e.g. "BTC/USDT").
+        lambda_penalty:    λ in fitness = mean(sharpe) − λ × std(sharpe).
+        model:             Anthropic model for the LLM agent.
+        history_window:    How many past experiments to include in agent context.
+        target_fitness:    Stop early if fitness reaches this value (None = disabled).
+        plateau_window:    Plateau window: number of recent *accepted* iterations
+                           to inspect for meaningful improvement.
+        plateau_threshold: Minimum Δ fitness per accepted iteration to count as
+                           meaningful progress. If all recent accepted iterations
+                           are below this, the loop stops.
+        track_config:      V2 TrackConfig — parameterises agent system prompt per
+                           signal class. None = V1 TA baseline behaviour.
+        strategy_path:     Path to strategy.py for this run. Defaults to root
+                           STRATEGY_PATH (for V1 backward compatibility).
+        backup_path:       Path for strategy backup. Defaults to root BACKUP_PATH.
+        log_path:          Path to experiment_log.jsonl. Defaults to root LOG_PATH.
+        df_augment_fn:     Optional callable(df) -> df that merges extra columns
+                           into the OHLCV dataframe before evaluation (e.g. ETH
+                           data for Track C, funding rates for Track D).
+        agent_mode:        "api" (default) calls the Anthropic API; "local" uses
+                           file-based request/response for an external agent.
     """
-    _print_banner(f"Research loop — {n_iterations} iterations on {symbol}")
-    log.info("Model: %s   λ=%.2f   history_window=%d", model, lambda_penalty, history_window)
+    _strategy_path = strategy_path or STRATEGY_PATH
+    _backup_path   = backup_path   or BACKUP_PATH
+    _log_path      = log_path      or LOG_PATH
+
+    track_label = (
+        f"Track {track_config.track_id} — {track_config.description}"
+        if track_config else "V1 (TA baseline)"
+    )
+    _print_banner(f"Research loop — {n_iterations} iterations on {symbol}  [{track_label}]")
+    log.info("Agent mode: %s", agent_mode)
+    if agent_mode == "api":
+        log.info("Model: %s   λ=%.2f   history_window=%d", model, lambda_penalty, history_window)
+    else:
+        log.info("λ=%.2f   history_window=%d", lambda_penalty, history_window)
+    log.info("Strategy : %s", _strategy_path)
+    log.info("Log      : %s", _log_path)
+    if target_fitness is not None:
+        log.info("Target fitness : %+.4f", target_fitness)
+    log.info("Plateau stop   : window=%d  threshold=%.4f", plateau_window, plateau_threshold)
 
     # ── pre-fetch data ────────────────────────────────────────────────────────
     log.info("\nPre-fetching 2 years of %s 1h candles…", symbol)
@@ -232,9 +312,14 @@ def run_loop(
         len(df), df.index[0].date(), df.index[-1].date(),
     )
 
+    if df_augment_fn is not None:
+        log.info("Augmenting df with extra columns for %s…", track_label)
+        df = df_augment_fn(df)
+        log.info("df columns after augment: %s", list(df.columns))
+
     # ── baseline evaluation ───────────────────────────────────────────────────
     log.info("\n── Baseline evaluation ─────────────────────────────────────────")
-    compute_signals, params = load_strategy_module()
+    compute_signals, params = load_strategy_module(strategy_path=_strategy_path)
     baseline = evaluate_strategy(
         compute_signals, params,
         symbol=symbol, lambda_penalty=lambda_penalty, df=df,
@@ -243,18 +328,18 @@ def run_loop(
     log.info("Baseline fitness: %+.4f\n", baseline.fitness)
 
     current_fitness = baseline.fitness
-    start_iter = _next_iteration_number()
+    start_iter = _next_iteration_number(log_path=_log_path)
 
     # ── iteration loop ────────────────────────────────────────────────────────
     for i in range(start_iter, start_iter + n_iterations):
         _print_banner(f"Iteration {i}  (fitness so far: {current_fitness:+.4f})", width=50)
 
-        history = load_history(n=history_window)
-        strategy_source = STRATEGY_PATH.read_text()
+        history = load_history(n=history_window, log_path=_log_path)
+        strategy_source = _strategy_path.read_text()
 
         # ── re-evaluate current strategy (for per-window agent context) ───────
         try:
-            compute_signals, params = load_strategy_module()
+            compute_signals, params = load_strategy_module(strategy_path=_strategy_path)
             current_result = evaluate_strategy(
                 compute_signals, params,
                 symbol=symbol, lambda_penalty=lambda_penalty, df=df,
@@ -266,13 +351,25 @@ def run_loop(
 
         # ── agent proposal ────────────────────────────────────────────────────
         try:
-            spec = propose_modification(
-                strategy_source=strategy_source,
-                current_fitness=current_fitness,
-                fitness_summary=current_result.summary(),
-                experiment_history=history,
-                model=model,
-            )
+            if agent_mode == "local":
+                run_dir = _strategy_path.parent
+                spec = propose_modification_local(
+                    strategy_source=strategy_source,
+                    current_fitness=current_fitness,
+                    fitness_summary=current_result.summary(),
+                    experiment_history=history,
+                    run_dir=run_dir,
+                    track_config=track_config,
+                )
+            else:
+                spec = propose_modification(
+                    strategy_source=strategy_source,
+                    current_fitness=current_fitness,
+                    fitness_summary=current_result.summary(),
+                    experiment_history=history,
+                    model=model,
+                    track_config=track_config,
+                )
         except Exception as exc:
             log.error("Agent error in iteration %d: %s — skipping", i, exc)
             continue
@@ -280,20 +377,20 @@ def run_loop(
         log.info("[%s] %s", spec.change_type.upper(), spec.rationale)
 
         # ── apply modification ────────────────────────────────────────────────
-        shutil.copy(STRATEGY_PATH, BACKUP_PATH)
+        shutil.copy(_strategy_path, _backup_path)
 
         try:
             new_source = apply_spec_to_source(spec, strategy_source)
         except Exception as exc:
             log.error("Failed to apply StrategySpec: %s — skipping", exc)
-            shutil.copy(BACKUP_PATH, STRATEGY_PATH)  # ensure clean state
+            shutil.copy(_backup_path, _strategy_path)
             continue
 
-        STRATEGY_PATH.write_text(new_source)
+        _strategy_path.write_text(new_source)
 
         # ── evaluate modified strategy ────────────────────────────────────────
         try:
-            new_signals, new_params = load_strategy_module()
+            new_signals, new_params = load_strategy_module(strategy_path=_strategy_path)
             new_result = evaluate_strategy(
                 new_signals, new_params,
                 symbol=symbol, lambda_penalty=lambda_penalty, df=df,
@@ -301,13 +398,17 @@ def run_loop(
             new_fitness = new_result.fitness
         except Exception as exc:
             log.error("Evaluation failed after modification: %s — reverting", exc)
-            shutil.copy(BACKUP_PATH, STRATEGY_PATH)
-            append_log(_build_log_entry(
-                iteration=i, accepted=False,
-                fitness_before=current_fitness, fitness_after=current_fitness,
-                spec=spec, fitness_result=current_result,
-                note=f"evaluation_error: {exc}",
-            ))
+            shutil.copy(_backup_path, _strategy_path)
+            append_log(
+                _build_log_entry(
+                    iteration=i, accepted=False,
+                    fitness_before=current_fitness, fitness_after=current_fitness,
+                    spec=spec, fitness_result=current_result,
+                    note=f"evaluation_error: {exc}",
+                    track_config=track_config,
+                ),
+                log_path=_log_path,
+            )
             continue
 
         # ── accept or revert ──────────────────────────────────────────────────
@@ -323,26 +424,56 @@ def run_loop(
             )
             print(new_result.summary())
         else:
-            shutil.copy(BACKUP_PATH, STRATEGY_PATH)
+            shutil.copy(_backup_path, _strategy_path)
             log.info(
                 "✗ REJECTED   %+.4f → %+.4f  (Δ=%+.4f) — reverted",
                 fitness_before, new_fitness, delta,
             )
 
-        append_log(_build_log_entry(
-            iteration=i, accepted=accepted,
-            fitness_before=fitness_before, fitness_after=new_fitness,
-            spec=spec, fitness_result=new_result,
-        ))
+        append_log(
+            _build_log_entry(
+                iteration=i, accepted=accepted,
+                fitness_before=fitness_before, fitness_after=new_fitness,
+                spec=spec, fitness_result=new_result,
+                track_config=track_config,
+            ),
+            log_path=_log_path,
+        )
+
+        # ── stopping conditions ───────────────────────────────────────────────
+
+        # 1. Target fitness reached
+        if target_fitness is not None and current_fitness >= target_fitness:
+            log.info(
+                "Target fitness %.4f reached (current: %+.4f) — stopping.",
+                target_fitness, current_fitness,
+            )
+            break
+
+        # 2. Plateau: last `plateau_window` accepted iterations all tiny
+        all_history = load_history(n=999_999, log_path=_log_path)
+        accepted_deltas = [
+            e["delta"] for e in all_history
+            if e.get("accepted") and "delta" in e
+        ]
+        if len(accepted_deltas) >= plateau_window:
+            recent = accepted_deltas[-plateau_window:]
+            if all(abs(d) < plateau_threshold for d in recent):
+                log.info(
+                    "Plateau detected: last %d accepted iterations all had "
+                    "|delta fitness| < %.4f — stopping.",
+                    plateau_window, plateau_threshold,
+                )
+                break
 
     # ── summary ───────────────────────────────────────────────────────────────
     _print_banner("Research loop complete")
-    history = load_history(n=n_iterations)
+    history = load_history(n=n_iterations, log_path=_log_path)
     accepted_count = sum(1 for e in history if e.get("accepted"))
     log.info("Iterations run : %d", n_iterations)
     log.info("Accepted       : %d  (%.0f%%)", accepted_count, 100 * accepted_count / max(n_iterations, 1))
     log.info("Final fitness  : %+.4f", current_fitness)
-    log.info("Log            : %s", LOG_PATH)
+    log.info("Log            : %s", _log_path)
 
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
@@ -382,6 +513,25 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Number of past experiments to include in agent context",
     )
     p.add_argument(
+        "--target-fitness", type=float, default=None,
+        help="Stop as soon as fitness reaches this value (default: disabled)",
+    )
+    p.add_argument(
+        "--plateau-window", type=int, default=5,
+        help="Stop if the last N accepted iterations all improved by less than "
+             "--plateau-threshold (default: 5)",
+    )
+    p.add_argument(
+        "--plateau-threshold", type=float, default=0.005,
+        help="Minimum meaningful Δ fitness per accepted iteration (default: 0.005)",
+    )
+    p.add_argument(
+        "--agent-mode", type=str, default="api",
+        choices=["api", "local"],
+        help="'api' calls the Anthropic API; 'local' uses file-based "
+             "request/response for an external agent (e.g. Claude in Cursor)",
+    )
+    p.add_argument(
         "--verbose", "-v", action="store_true",
         help="Enable DEBUG logging",
     )
@@ -405,6 +555,10 @@ def main() -> None:
         lambda_penalty=args.lambda_penalty,
         model=args.model,
         history_window=args.history,
+        target_fitness=args.target_fitness,
+        plateau_window=args.plateau_window,
+        plateau_threshold=args.plateau_threshold,
+        agent_mode=args.agent_mode,
     )
 
 

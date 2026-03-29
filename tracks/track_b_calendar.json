@@ -1,0 +1,23 @@
+{
+  "track_id": "B",
+  "signal_class": "calendar_session",
+  "description": "Calendar / trading session effects",
+  "allowed_libraries": ["numpy", "pandas"],
+  "df_columns_extra": [],
+  "signal_class_brief": "\n\nDifferent participant pools dominate at different times of day and week, creating structural microstructure effects that are reducible — they exist because of who is trading, not because of chart patterns.\n\nSession windows (UTC): Asian session roughly 00:00–08:00, European session 07:00–16:00, US session 13:00–21:00. The Asian session is dominated by retail crypto participants; European and US sessions have more institutional flow and deeper liquidity. Directional moves that initiate in the Asian session (low liquidity, retail-driven) frequently exhaust or reverse at the US open. Conversely, moves that begin in the US session with volume often sustain through the next day.\n\nWeekend effects: Saturday and Sunday trading is predominantly retail. Volume is lower, and momentum signals are less reliable. A filter that avoids new entries on weekends (df.index.dayofweek >= 5) has an empirical basis in participant structure.\n\nHour-of-day effects: The 13:00–15:00 UTC window (US market open + first hour) historically exhibits the highest BTC volatility and volume as institutional desks come online. The 02:00–06:00 UTC window (deep Asia/Australia, low global participation) tends to see slow drift or mean-reversion.",
+
+  "reducibility_note": "Moderate reducibility. Session effects exist because of structurally different participant pools at different times — this is a microstructure property, not a reflexive chart pattern. However, as more participants become aware of these effects, they can partially arbitrage away. They are more durable than TA but less robust than pure volatility clustering.",
+
+  "exploration_hints": [
+    "Hour-of-day from UTC index: `df.index.hour` — available directly on the DatetimeIndex.",
+    "Day-of-week: `df.index.dayofweek` — 0=Monday, 6=Sunday. Weekend filter: `df.index.dayofweek < 5`.",
+    "US session entry filter: only enter between 13:00–20:00 UTC (`(df.index.hour >= 13) & (df.index.hour < 20)`).",
+    "Asian session avoidance: block new entries between 01:00–07:00 UTC when retail flow dominates.",
+    "Session momentum: price change in first 2 hours of US session as directional signal for the day.",
+    "Try combining a simple momentum entry (close > close.shift(N)) with a session timing gate instead of EMA crossover.",
+    "End-of-week exit: close all positions before weekend (e.g. exit on Friday 20:00 UTC).",
+    "Day-of-week weighting: track which weekdays have the best win rate historically and use as an entry gate."
+  ],
+
+  "ta_baseline_fitness": 0.4714
+}

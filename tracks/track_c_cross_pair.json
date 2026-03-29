@@ -1,0 +1,23 @@
+{
+  "track_id": "C",
+  "signal_class": "cross_pair",
+  "description": "Cross-pair signals (BTC / ETH ratio)",
+  "allowed_libraries": ["numpy", "pandas"],
+  "df_columns_extra": ["eth_open", "eth_high", "eth_low", "eth_close", "eth_volume"],
+  "signal_class_brief": "\n\nBTC and ETH are structurally cointegrated — they share exposure to the same crypto market cycle and are linked by genuine arbitrage pressure. BTC typically leads ETH in directional moves: BTC strength often precedes or confirms broad crypto risk-on. The BTC/ETH price ratio (or its rolling z-score) mean-reverts because arbitrage desks and systematic traders actively exploit ratio deviations between the two most liquid crypto assets.\n\nThree distinct signal families are available here:\n\n1. BTC as a leading indicator for ETH (or vice versa): if the df contains both assets, a BTC momentum signal (e.g. BTC close rising over the past N bars) can gate or confirm an ETH entry. BTC moves often propagate to ETH with a lag of 1–4 hours.\n\n2. Ratio z-score for mean reversion: compute `ratio = btc_close / eth_close`, then `ratio_z = (ratio - ratio.rolling(N).mean()) / ratio.rolling(N).std()`. A large positive z-score means BTC is expensive relative to ETH (ETH may outperform). A large negative z-score means ETH is expensive.\n\n3. Relative strength / beta divergence: if ETH is outperforming BTC significantly (ETH return > BTC return over N bars), it signals broad crypto bull sentiment — ETH outperformance is a reliable bull market amplifier. ETH underperformance relative to BTC signals risk-off or BTC dominance.\n\nNote: in this df, the columns eth_open, eth_high, eth_low, eth_close, eth_volume contain ETH/USDT 1h data aligned to the same UTC index as BTC. The strategy is running on BTC/USDT entries/exits but uses ETH as a signal source.",
+
+  "reducibility_note": "Moderate-to-strong reducibility. BTC/ETH cointegration exists because of genuine cross-asset arbitrage (both track the same crypto risk cycle), and ratio mean-reversion has structural arbitrage pressure. Leading/lagging relationships between BTC and ETH are a microstructure property. However, as these signals become widely known they can diminish — monitor for regime-dependence in the window breakdown.",
+
+  "exploration_hints": [
+    "BTC/ETH ratio z-score: `ratio = close / eth_close; ratio_z = (ratio - ratio.rolling(N).mean()) / ratio.rolling(N).std()`.",
+    "Entry filter: only enter BTC long when BTC has been outperforming ETH (btc_return > eth_return over past N bars).",
+    "ETH relative strength as bull regime indicator: `eth_rs = (eth_close / eth_close.shift(N)) / (close / close.shift(N))` — values > 1.1 signal broad crypto bull.",
+    "BTC leading ETH: BTC price change over the last 2–4 bars as a signal for current-bar entry decision.",
+    "Correlation regime: rolling correlation between BTC and ETH returns. High correlation = risk-on; decorrelation = risk-off.",
+    "Ratio percentile: where does the current BTC/ETH ratio sit in its 90-day history? Extreme values signal regime shift.",
+    "Combine ratio z-score as an entry gate with a simple momentum signal (close > close.shift(N)) for entries.",
+    "Try ETH volume surge as a BTC confirmation signal: abnormal ETH volume (eth_volume > eth_volume.rolling(N).mean() * 1.5) preceding a BTC signal."
+  ],
+
+  "ta_baseline_fitness": 0.4714
+}

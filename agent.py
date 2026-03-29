@@ -9,10 +9,14 @@ The agent reads:
 And outputs a StrategySpec: a structured modification proposal that the
 research loop applies to strategy.py, re-evaluates, and accepts or rejects.
 
-The agent uses the Anthropic API with tool_use to guarantee a structured
-response — no free-form text parsing required.
+Two agent modes:
+  "api"   — calls the Anthropic API with tool_use (original, requires API key)
+  "local" — writes context to agent_request.json and polls for agent_response.json,
+             allowing an external agent (e.g. Claude in Cursor) to provide proposals
+             without API calls.
 
-ANTHROPIC_API_KEY must be set in the environment.
+V2: pass a TrackConfig to parameterise the system prompt per research track.
+    If no TrackConfig is supplied, the original V1 TA-baseline behaviour is used.
 
 Usage (standalone smoke-test):
     python agent.py
@@ -23,10 +27,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
+from pathlib import Path
 from typing import Literal
 
 import anthropic
 from pydantic import BaseModel, Field
+
+from track_config import TrackConfig
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +57,7 @@ class StrategySpec(BaseModel):
         new_signals_code: Full source of the new compute_signals() function,
                           including the def line and its docstring.
                           Must be None for parametric changes.
-                          Must be valid Python using the `ta` library.
+                          Must be valid Python using the track's allowed libraries.
     """
 
     change_type: Literal["parametric", "structural"]
@@ -66,60 +74,9 @@ class StrategySpec(BaseModel):
     )
 
 
-# ── Anthropic tool definition (mirrors StrategySpec) ─────────────────────────
+# ── V1 system prompt (used when no TrackConfig is supplied) ───────────────────
 
-_PROPOSE_TOOL: dict = {
-    "name": "propose_strategy_modification",
-    "description": (
-        "Propose a single, targeted modification to the trading strategy. "
-        "Output the complete new PARAMS dict and, for structural changes, "
-        "the complete new compute_signals function."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "change_type": {
-                "type": "string",
-                "enum": ["parametric", "structural"],
-                "description": (
-                    "'parametric' if only changing PARAMS values. "
-                    "'structural' if rewriting compute_signals logic."
-                ),
-            },
-            "rationale": {
-                "type": "string",
-                "description": (
-                    "1-3 sentences: what you changed, why you expect it to "
-                    "improve regime-robust fitness, and what failure mode you are addressing."
-                ),
-            },
-            "params": {
-                "type": "object",
-                "description": (
-                    "Complete new PARAMS dict. Include ALL keys, even unchanged ones. "
-                    "Values must be numbers (int or float)."
-                ),
-                "additionalProperties": {"type": "number"},
-            },
-            "new_signals_code": {
-                "type": ["string", "null"],
-                "description": (
-                    "Full compute_signals() source including the def line. "
-                    "Must use the `ta` library (not pandas_ta). "
-                    "Must return (entries, exits) as boolean Series. "
-                    "Fill NaN with False before returning. "
-                    "Leave null for parametric-only changes."
-                ),
-            },
-        },
-        "required": ["change_type", "rationale", "params"],
-    },
-}
-
-
-# ── System prompt ─────────────────────────────────────────────────────────────
-
-_SYSTEM_PROMPT = """\
+_V1_SYSTEM_PROMPT = """\
 You are an algorithmic trading strategy researcher specialising in crypto markets \
 (BTC/ETH, 1-hour candles, 24/7 trading).
 
@@ -168,6 +125,175 @@ EXPLORATION STRATEGY
 (e.g., do not combine RSI oversold entry with EMA uptrend — they are contradictory)"""
 
 
+# ── V1 tool definition (used when no TrackConfig is supplied) ─────────────────
+
+_V1_PROPOSE_TOOL: dict = {
+    "name": "propose_strategy_modification",
+    "description": (
+        "Propose a single, targeted modification to the trading strategy. "
+        "Output the complete new PARAMS dict and, for structural changes, "
+        "the complete new compute_signals function."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "change_type": {
+                "type": "string",
+                "enum": ["parametric", "structural"],
+                "description": (
+                    "'parametric' if only changing PARAMS values. "
+                    "'structural' if rewriting compute_signals logic."
+                ),
+            },
+            "rationale": {
+                "type": "string",
+                "description": (
+                    "1-3 sentences: what you changed, why you expect it to "
+                    "improve regime-robust fitness, and what failure mode you are addressing."
+                ),
+            },
+            "params": {
+                "type": "object",
+                "description": (
+                    "Complete new PARAMS dict. Include ALL keys, even unchanged ones. "
+                    "Values must be numbers (int or float)."
+                ),
+                "additionalProperties": {"type": "number"},
+            },
+            "new_signals_code": {
+                "type": ["string", "null"],
+                "description": (
+                    "Full compute_signals() source including the def line. "
+                    "Must use the `ta` library (not pandas_ta). "
+                    "Must return (entries, exits) as boolean Series. "
+                    "Fill NaN with False before returning. "
+                    "Leave null for parametric-only changes."
+                ),
+            },
+        },
+        "required": ["change_type", "rationale", "params"],
+    },
+}
+
+
+# ── V2 prompt and tool builders ───────────────────────────────────────────────
+
+def _build_system_prompt(config: TrackConfig) -> str:
+    """Build a track-specific system prompt from a TrackConfig."""
+    libs_str = ", ".join(f"`{lib}`" for lib in config.allowed_libraries)
+
+    std_cols = "open, high, low, close, volume (UTC DatetimeIndex)"
+    if config.df_columns_extra:
+        extra_str = ", ".join(config.df_columns_extra)
+        cols_str = f"{std_cols}; extra columns provided by this track: {extra_str}"
+    else:
+        cols_str = std_cols
+
+    hints_str = "\n".join(f"  - {hint}" for hint in config.exploration_hints)
+
+    return f"""\
+You are an algorithmic trading strategy researcher specialising in crypto markets \
+(BTC/ETH, 1-hour candles, 24/7 trading). You are working on research Track {config.track_id}: \
+{config.description}.
+
+YOUR GOAL
+Propose ONE modification to a trading strategy that improves its regime-robustness \
+fitness score. Each modification is evaluated, then accepted or rejected based on \
+whether fitness actually improves.
+
+FITNESS FUNCTION
+  fitness = mean(sharpe_across_5_windows) − 0.5 × std(sharpe_across_5_windows)
+
+  The 5 windows are non-overlapping 3-month slices over 2 years of BTC/USDT hourly \
+data, covering diverse market regimes: bull runs, bear phases, choppy/sideways markets, \
+and recovery periods.
+
+  A consistent Sharpe of 1.4 across all windows beats 2.5 in one and 0.2 in others.
+  The variance penalty is the key constraint — target consistency, not peak performance.
+  Windows with fewer than 3 trades are scored as Sharpe = 0. Avoid zeroing out windows.
+
+  TA BASELINE (Track E): The EMA-crossover TA strategy achieved fitness = \
+{config.ta_baseline_fitness:+.4f} after 55 iterations. Your track must beat this \
+to be considered an improvement over TA.
+
+SIGNAL CLASS: {config.signal_class.upper().replace("_", " ")}
+{config.signal_class_brief}
+
+REDUCIBILITY CHECK
+{config.reducibility_note}
+
+TECHNICAL RULES
+  - Allowed libraries: {libs_str}. Do NOT use pandas_ta (Python 3.10+ incompatibility).
+  - df columns available: {cols_str}
+  - compute_signals MUST return (entries, exits) as boolean pandas Series
+  - Fill NaN with False (.fillna(False)) before returning
+  - Long-only — no shorting, no position sizing changes
+  - Only import from the explicitly allowed libraries listed above
+
+EXPLORATION HINTS FOR THIS TRACK
+{hints_str}
+
+GENERAL EXPLORATION STRATEGY
+  - Study the per-window breakdown: which regimes does the strategy fail in?
+  - If std_sharpe is high: prioritise reducing variance (more conservative filters)
+  - If mean_sharpe is low across all windows: try a structurally different approach
+  - Avoid repeating recently rejected configurations
+  - Alternate between parametric tuning and structural changes to explore broadly
+  - When proposing structural changes, ensure the new logic is internally consistent"""
+
+
+def _build_propose_tool(config: TrackConfig) -> dict:
+    """Build the tool definition with track-specific library constraints."""
+    libs_str = ", ".join(config.allowed_libraries)
+    return {
+        "name": "propose_strategy_modification",
+        "description": (
+            "Propose a single, targeted modification to the trading strategy. "
+            "Output the complete new PARAMS dict and, for structural changes, "
+            "the complete new compute_signals function."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "change_type": {
+                    "type": "string",
+                    "enum": ["parametric", "structural"],
+                    "description": (
+                        "'parametric' if only changing PARAMS values. "
+                        "'structural' if rewriting compute_signals logic."
+                    ),
+                },
+                "rationale": {
+                    "type": "string",
+                    "description": (
+                        "1-3 sentences: what you changed, why you expect it to "
+                        "improve regime-robust fitness, and what failure mode you are addressing."
+                    ),
+                },
+                "params": {
+                    "type": "object",
+                    "description": (
+                        "Complete new PARAMS dict. Include ALL keys, even unchanged ones. "
+                        "Values must be numbers (int or float)."
+                    ),
+                    "additionalProperties": {"type": "number"},
+                },
+                "new_signals_code": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Full compute_signals() source including the def line. "
+                        f"Must only use libraries: {libs_str}. "
+                        "Must return (entries, exits) as boolean Series. "
+                        "Fill NaN with False before returning. "
+                        "Leave null for parametric-only changes."
+                    ),
+                },
+            },
+            "required": ["change_type", "rationale", "params"],
+        },
+    }
+
+
 # ── Agent function ────────────────────────────────────────────────────────────
 
 def propose_modification(
@@ -176,6 +302,7 @@ def propose_modification(
     fitness_summary: str,
     experiment_history: list[dict],
     model: str = "claude-opus-4-6",
+    track_config: TrackConfig | None = None,
 ) -> StrategySpec:
     """
     Call the LLM agent and return a StrategySpec modification proposal.
@@ -186,6 +313,8 @@ def propose_modification(
         fitness_summary:    Human-readable per-window breakdown (FitnessResult.summary()).
         experiment_history: Recent experiment dicts from experiment_log.jsonl.
         model:              Anthropic model to use.
+        track_config:       V2 track configuration. If None, uses V1 TA-baseline
+                            system prompt (backward compatible).
 
     Returns:
         StrategySpec describing the proposed modification.
@@ -198,6 +327,15 @@ def propose_modification(
         raise RuntimeError("ANTHROPIC_API_KEY environment variable is not set")
 
     client = anthropic.Anthropic(api_key=api_key)
+
+    if track_config is not None:
+        system_prompt = _build_system_prompt(track_config)
+        propose_tool = _build_propose_tool(track_config)
+        track_label = f"Track {track_config.track_id} ({track_config.signal_class})"
+    else:
+        system_prompt = _V1_SYSTEM_PROMPT
+        propose_tool = _V1_PROPOSE_TOOL
+        track_label = "V1 (TA baseline)"
 
     history_str = _format_history(experiment_history)
 
@@ -230,13 +368,13 @@ Think step-by-step:
 Your goal is to reduce fitness variance across regimes while maintaining or \
 improving mean Sharpe."""
 
-    log.info("Calling %s for modification proposal…", model)
+    log.info("Calling %s [%s] for modification proposal…", model, track_label)
 
     response = client.messages.create(
         model=model,
         max_tokens=4096,
-        system=_SYSTEM_PROMPT,
-        tools=[_PROPOSE_TOOL],
+        system=system_prompt,
+        tools=[propose_tool],
         tool_choice={"type": "tool", "name": "propose_strategy_modification"},
         messages=[{"role": "user", "content": user_message}],
     )
@@ -252,6 +390,116 @@ improving mean Sharpe."""
         )
 
     spec = StrategySpec(**tool_block.input)
+    log.info(
+        "Agent proposed [%s]: %s",
+        spec.change_type,
+        spec.rationale[:120],
+    )
+    return spec
+
+
+# ── Local agent (file-based) ──────────────────────────────────────────────────
+
+_LOCAL_POLL_INTERVAL = 2.0  # seconds between checks for response file
+
+
+def propose_modification_local(
+    strategy_source: str,
+    current_fitness: float,
+    fitness_summary: str,
+    experiment_history: list[dict],
+    run_dir: Path,
+    track_config: TrackConfig | None = None,
+) -> StrategySpec:
+    """
+    File-based agent: write context to agent_request.json, wait for agent_response.json.
+
+    This allows an external agent (e.g. Claude in Cursor) to act as the research
+    agent without any API calls. The research loop pauses until the response file
+    appears.
+
+    Request file (written by this function):
+        {run_dir}/agent_request.json — contains strategy source, fitness, history.
+
+    Response file (written by the external agent):
+        {run_dir}/agent_response.json — a StrategySpec JSON object:
+        {
+            "change_type": "parametric" | "structural",
+            "rationale": "...",
+            "params": {"key": value, ...},
+            "new_signals_code": "..." | null
+        }
+
+    Both files are deleted after the response is read.
+    """
+    request_path = run_dir / "agent_request.json"
+    response_path = run_dir / "agent_response.json"
+
+    track_label = (
+        f"Track {track_config.track_id} ({track_config.signal_class})"
+        if track_config else "V1 (TA baseline)"
+    )
+
+    history_str = _format_history(experiment_history)
+
+    request = {
+        "track": track_label,
+        "current_fitness": round(current_fitness, 6),
+        "fitness_summary": fitness_summary,
+        "strategy_source": strategy_source,
+        "experiment_history": experiment_history,
+        "history_formatted": history_str,
+    }
+    if track_config is not None:
+        request["track_config"] = {
+            "track_id": track_config.track_id,
+            "signal_class": track_config.signal_class,
+            "description": track_config.description,
+            "allowed_libraries": track_config.allowed_libraries,
+            "exploration_hints": track_config.exploration_hints,
+        }
+
+    request_path.write_text(json.dumps(request, indent=2, default=str))
+
+    # Remove stale response file if it exists
+    if response_path.exists():
+        response_path.unlink()
+
+    log.info(
+        "LOCAL AGENT MODE [%s] — waiting for proposal…",
+        track_label,
+    )
+    print(
+        f"\n{'=' * 60}\n"
+        f"  LOCAL AGENT: waiting for proposal\n"
+        f"  Request:  {request_path}\n"
+        f"  Respond:  {response_path}\n"
+        f"{'=' * 60}\n"
+    )
+
+    while not response_path.exists():
+        time.sleep(_LOCAL_POLL_INTERVAL)
+
+    raw = response_path.read_text().strip()
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        request_path.unlink(missing_ok=True)
+        response_path.unlink(missing_ok=True)
+        raise RuntimeError(f"Invalid JSON in agent_response.json: {exc}") from exc
+
+    try:
+        spec = StrategySpec(**data)
+    except Exception as exc:
+        request_path.unlink(missing_ok=True)
+        response_path.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"agent_response.json does not match StrategySpec schema: {exc}"
+        ) from exc
+
+    request_path.unlink(missing_ok=True)
+    response_path.unlink(missing_ok=True)
+
     log.info(
         "Agent proposed [%s]: %s",
         spec.change_type,
@@ -312,18 +560,32 @@ if __name__ == "__main__":
         "   ⚠ W5: [2025-04-27 → 2025-07-27] Sharpe=-0.360  Return=-3.5%  MDD=18.4%  Trades=8   WinRate=37%"
     )
 
+    # Test V1 path (no track config)
+    print("\n── V1 path (no TrackConfig) ───────────────────────────────────────")
     spec = propose_modification(
         strategy_source=strategy_source,
         current_fitness=0.23,
         fitness_summary=fitness_summary,
         experiment_history=[],
     )
-
-    print("\n── Proposed StrategySpec ──────────────────────────────────────────")
     print(f"  change_type: {spec.change_type}")
     print(f"  rationale:   {spec.rationale}")
-    print(f"  params:      {json.dumps(spec.params, indent=16)}")
-    if spec.new_signals_code:
-        print(f"\n  new_signals_code:\n{spec.new_signals_code}")
+
+    # Test V2 path (with Track A config)
+    from track_config import load_track
+    track_a = load_track(Path(__file__).parent / "tracks" / "track_a_vol_regime.json")
+
+    print("\n── V2 path (Track A — vol regime) ────────────────────────────────")
+    spec_a = propose_modification(
+        strategy_source=strategy_source,
+        current_fitness=0.23,
+        fitness_summary=fitness_summary,
+        experiment_history=[],
+        track_config=track_a,
+    )
+    print(f"  change_type: {spec_a.change_type}")
+    print(f"  rationale:   {spec_a.rationale}")
+    if spec_a.new_signals_code:
+        print(f"\n  new_signals_code:\n{spec_a.new_signals_code}")
     else:
         print("  new_signals_code: null (parametric only)")

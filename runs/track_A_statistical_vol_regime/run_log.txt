@@ -1,0 +1,756 @@
+15:08:01 INFO     Resuming: existing strategy.py found at /Users/kaneelfman/Documents/Claude/Projects/Autotrader/runs/track_A_statistical_vol_regime/strategy.py
+15:08:01 INFO     Track A (statistical_vol_regime) — 20 iterations
+15:08:01 INFO     Run dir: /Users/kaneelfman/Documents/Claude/Projects/Autotrader/runs/track_A_statistical_vol_regime
+15:08:01 INFO     
+15:08:01 INFO     ════════════════════════════════════════════════════════════
+15:08:01 INFO       Research loop — 20 iterations on BTC/USDT  [Track A — Statistical / volatility regime detection]
+15:08:01 INFO     ════════════════════════════════════════════════════════════
+15:08:01 INFO     Model: claude-opus-4-6   λ=0.50   history_window=15
+15:08:01 INFO     Strategy : /Users/kaneelfman/Documents/Claude/Projects/Autotrader/runs/track_A_statistical_vol_regime/strategy.py
+15:08:01 INFO     Log      : /Users/kaneelfman/Documents/Claude/Projects/Autotrader/runs/track_A_statistical_vol_regime/experiment_log.jsonl
+15:08:01 INFO     Plateau stop   : window=5  threshold=0.0050
+15:08:01 INFO     
+Pre-fetching 2 years of BTC/USDT 1h candles…
+15:08:01 INFO     Cache hit for BTC/USDT 1h (17535 rows)
+15:08:01 INFO     Data: 17517 rows  [2024-03-29 → 2026-03-29]
+15:08:01 INFO     
+── Baseline evaluation ─────────────────────────────────────────
+15:08:01 INFO     Running 5 backtest windows…
+15:08:01 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:08:03 INFO         [2024-03-29 → 2024-06-28] Sharpe=-2.221  Return=-15.1%  MDD=18.6%  Trades=54  WinRate=27%
+15:08:03 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:08:03 INFO         [2024-09-05 → 2024-12-05] Sharpe=+2.029  Return=+17.2%  MDD=9.5%  Trades=52  WinRate=40%
+15:08:03 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:08:03 INFO         [2025-02-11 → 2025-05-13] Sharpe=-0.527  Return=-5.4%  MDD=18.3%  Trades=49  WinRate=31%
+15:08:03 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:08:03 INFO         [2025-07-20 → 2025-10-19] Sharpe=-4.781  Return=-19.9%  MDD=24.1%  Trades=55  WinRate=23%
+15:08:03 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:08:03 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.361  Return=-3.6%  MDD=19.6%  Trades=45  WinRate=38%
+15:08:03 INFO     Fitness: -2.3000  (mean_sharpe=-1.172, std=2.256, λ=0.5)
+── Fitness: -2.3000  (mean_sharpe=-1.172, std=2.256, λ=0.5)
+   Symbol: BTC/USDT  Windows: 5
+   ✓ W1: [2024-03-29 → 2024-06-28] Sharpe=-2.221  Return=-15.1%  MDD=18.6%  Trades=54  WinRate=27%
+   ✓ W2: [2024-09-05 → 2024-12-05] Sharpe=+2.029  Return=+17.2%  MDD=9.5%  Trades=52  WinRate=40%
+   ✓ W3: [2025-02-11 → 2025-05-13] Sharpe=-0.527  Return=-5.4%  MDD=18.3%  Trades=49  WinRate=31%
+   ✓ W4: [2025-07-20 → 2025-10-19] Sharpe=-4.781  Return=-19.9%  MDD=24.1%  Trades=55  WinRate=23%
+   ✓ W5: [2025-12-27 → 2026-03-28] Sharpe=-0.361  Return=-3.6%  MDD=19.6%  Trades=45  WinRate=38%
+15:08:03 INFO     Baseline fitness: -2.3000
+
+15:08:03 INFO     
+15:08:03 INFO     ══════════════════════════════════════════════════
+15:08:03 INFO       Iteration 1  (fitness so far: -2.3000)
+15:08:03 INFO     ══════════════════════════════════════════════════
+15:08:03 INFO     Running 5 backtest windows…
+15:08:03 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:08:03 INFO         [2024-03-29 → 2024-06-28] Sharpe=-2.221  Return=-15.1%  MDD=18.6%  Trades=54  WinRate=27%
+15:08:03 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:08:03 INFO         [2024-09-05 → 2024-12-05] Sharpe=+2.029  Return=+17.2%  MDD=9.5%  Trades=52  WinRate=40%
+15:08:03 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:08:03 INFO         [2025-02-11 → 2025-05-13] Sharpe=-0.527  Return=-5.4%  MDD=18.3%  Trades=49  WinRate=31%
+15:08:03 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:08:03 INFO         [2025-07-20 → 2025-10-19] Sharpe=-4.781  Return=-19.9%  MDD=24.1%  Trades=55  WinRate=23%
+15:08:03 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:08:03 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.361  Return=-3.6%  MDD=19.6%  Trades=45  WinRate=38%
+15:08:03 INFO     Fitness: -2.3000  (mean_sharpe=-1.172, std=2.256, λ=0.5)
+15:08:03 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:08:21 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:08:21 INFO     Agent proposed [structural]: The current strategy is a simple breakout system that gets destroyed in choppy/bear regimes (W1, W4 especially). I'm rep
+15:08:21 INFO     [STRUCTURAL] The current strategy is a simple breakout system that gets destroyed in choppy/bear regimes (W1, W4 especially). I'm replacing it entirely with a volatility-regime-filtered momentum strategy. The core idea: (1) compute realized vol and its percentile rank over a long lookback, (2) only enter long when vol is in a calm regime (percentile < 0.45) AND price shows upward momentum (close > rolling mean + small threshold via z-score > 0.5), (3) exit when vol regime becomes unstable (percentile > 0.7) OR price mean-reverts (z-score drops below -0.5). This should dramatically reduce losses in high-vol whipsaw regimes (W1, W4) while preserving gains in trending calm regimes (W2). The vol filter is the key variance-reducer.
+15:08:21 INFO     Running 5 backtest windows…
+15:08:21 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:08:21 INFO         [2024-03-29 → 2024-06-28] Sharpe=-2.576  Return=-13.7%  MDD=14.2%  Trades=24  WinRate=12%
+15:08:21 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:08:21 INFO         [2024-09-05 → 2024-12-05] Sharpe=+3.383  Return=+16.8%  MDD=6.6%  Trades=15  WinRate=47%
+15:08:21 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:08:21 INFO         [2025-02-11 → 2025-05-13] Sharpe=+2.099  Return=+11.1%  MDD=6.9%  Trades=17  WinRate=35%
+15:08:21 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:08:21 INFO         [2025-07-20 → 2025-10-19] Sharpe=+2.708  Return=+9.0%  MDD=7.0%  Trades=13  WinRate=38%
+15:08:21 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:08:21 INFO         [2025-12-27 → 2026-03-28] Sharpe=-3.751  Return=-5.7%  MDD=5.7%  Trades=4  WinRate=0%
+15:08:21 INFO     Fitness: -1.0969  (mean_sharpe=0.373, std=2.939, λ=0.5)
+15:08:21 INFO     ✓ ACCEPTED   -2.3000 → -1.0969  (Δ=+1.2031)
+── Fitness: -1.0969  (mean_sharpe=+0.373, std=2.939, λ=0.5)
+   Symbol: BTC/USDT  Windows: 5
+   ✓ W1: [2024-03-29 → 2024-06-28] Sharpe=-2.576  Return=-13.7%  MDD=14.2%  Trades=24  WinRate=12%
+   ✓ W2: [2024-09-05 → 2024-12-05] Sharpe=+3.383  Return=+16.8%  MDD=6.6%  Trades=15  WinRate=47%
+   ✓ W3: [2025-02-11 → 2025-05-13] Sharpe=+2.099  Return=+11.1%  MDD=6.9%  Trades=17  WinRate=35%
+   ✓ W4: [2025-07-20 → 2025-10-19] Sharpe=+2.708  Return=+9.0%  MDD=7.0%  Trades=13  WinRate=38%
+   ✓ W5: [2025-12-27 → 2026-03-28] Sharpe=-3.751  Return=-5.7%  MDD=5.7%  Trades=4  WinRate=0%
+15:08:21 INFO     
+15:08:21 INFO     ══════════════════════════════════════════════════
+15:08:21 INFO       Iteration 2  (fitness so far: -1.0969)
+15:08:21 INFO     ══════════════════════════════════════════════════
+15:08:21 INFO     Running 5 backtest windows…
+15:08:21 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:08:21 INFO         [2024-03-29 → 2024-06-28] Sharpe=-2.576  Return=-13.7%  MDD=14.2%  Trades=24  WinRate=12%
+15:08:21 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:08:21 INFO         [2024-09-05 → 2024-12-05] Sharpe=+3.383  Return=+16.8%  MDD=6.6%  Trades=15  WinRate=47%
+15:08:21 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:08:21 INFO         [2025-02-11 → 2025-05-13] Sharpe=+2.099  Return=+11.1%  MDD=6.9%  Trades=17  WinRate=35%
+15:08:21 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:08:21 INFO         [2025-07-20 → 2025-10-19] Sharpe=+2.708  Return=+9.0%  MDD=7.0%  Trades=13  WinRate=38%
+15:08:21 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:08:21 INFO         [2025-12-27 → 2026-03-28] Sharpe=-3.751  Return=-5.7%  MDD=5.7%  Trades=4  WinRate=0%
+15:08:21 INFO     Fitness: -1.0969  (mean_sharpe=0.373, std=2.939, λ=0.5)
+15:08:21 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:08:43 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:08:43 INFO     Agent proposed [structural]: W1 (Sharpe=-2.576) and W5 (Sharpe=-3.751) are catastrophic, dragging mean down and std up massively. The core problem is
+15:08:43 INFO     [STRUCTURAL] W1 (Sharpe=-2.576) and W5 (Sharpe=-3.751) are catastrophic, dragging mean down and std up massively. The core problem is that the strategy enters too aggressively in regimes where momentum signals are unreliable, and the z-score exit at -0.5 is too loose, allowing large drawdowns. Key changes: (1) Add a Garman-Klass vol estimator for more accurate OHLC-based vol, (2) Add vol-of-vol filter to avoid entering when vol regime itself is unstable, (3) Use a trailing momentum confirmation (close > close.shift(N)) as an additional entry gate, (4) Tighten exit conditions with a faster z-score exit and add a simple stop-loss via max drawdown from entry price tracked through a rolling max, (5) Reduce trade frequency in bad regimes by requiring multiple consecutive bars of calm vol before entering.
+15:08:43 INFO     Running 5 backtest windows…
+15:08:43 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:08:44 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.964  Return=-4.8%  MDD=7.7%  Trades=16  WinRate=19%
+15:08:44 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:08:44 INFO         [2024-09-05 → 2024-12-05] Sharpe=+1.637  Return=+6.3%  MDD=3.7%  Trades=6  WinRate=33%
+15:08:44 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:08:44 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.948  Return=+8.1%  MDD=6.0%  Trades=11  WinRate=36%
+15:08:44 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:08:44 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.903  Return=+2.4%  MDD=9.9%  Trades=10  WinRate=20%
+15:08:44 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:08:44 INFO         [2025-12-27 → 2026-03-28] Sharpe=-2.027  Return=-2.0%  MDD=2.0%  Trades=1  WinRate=0%
+15:08:44 WARNING  Window 5 has too few trades (1), treating Sharpe as 0
+15:08:44 INFO     Fitness: 0.1693  (mean_sharpe=0.705, std=1.071, λ=0.5)
+15:08:44 INFO     ✓ ACCEPTED   -1.0969 → +0.1693  (Δ=+1.2662)
+── Fitness: +0.1693  (mean_sharpe=+0.705, std=1.071, λ=0.5)
+   Symbol: BTC/USDT  Windows: 5
+   ✓ W1: [2024-03-29 → 2024-06-28] Sharpe=-0.964  Return=-4.8%  MDD=7.7%  Trades=16  WinRate=19%
+   ✓ W2: [2024-09-05 → 2024-12-05] Sharpe=+1.637  Return=+6.3%  MDD=3.7%  Trades=6  WinRate=33%
+   ✓ W3: [2025-02-11 → 2025-05-13] Sharpe=+1.948  Return=+8.1%  MDD=6.0%  Trades=11  WinRate=36%
+   ✓ W4: [2025-07-20 → 2025-10-19] Sharpe=+0.903  Return=+2.4%  MDD=9.9%  Trades=10  WinRate=20%
+   ⚠ W5: [2025-12-27 → 2026-03-28] Sharpe=-2.027  Return=-2.0%  MDD=2.0%  Trades=1  WinRate=0%
+15:08:44 INFO     
+15:08:44 INFO     ══════════════════════════════════════════════════
+15:08:44 INFO       Iteration 3  (fitness so far: +0.1693)
+15:08:44 INFO     ══════════════════════════════════════════════════
+15:08:44 INFO     Running 5 backtest windows…
+15:08:44 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:08:44 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.964  Return=-4.8%  MDD=7.7%  Trades=16  WinRate=19%
+15:08:44 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:08:44 INFO         [2024-09-05 → 2024-12-05] Sharpe=+1.637  Return=+6.3%  MDD=3.7%  Trades=6  WinRate=33%
+15:08:44 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:08:44 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.948  Return=+8.1%  MDD=6.0%  Trades=11  WinRate=36%
+15:08:44 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:08:44 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.903  Return=+2.4%  MDD=9.9%  Trades=10  WinRate=20%
+15:08:44 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:08:44 INFO         [2025-12-27 → 2026-03-28] Sharpe=-2.027  Return=-2.0%  MDD=2.0%  Trades=1  WinRate=0%
+15:08:44 WARNING  Window 5 has too few trades (1), treating Sharpe as 0
+15:08:44 INFO     Fitness: 0.1693  (mean_sharpe=0.705, std=1.071, λ=0.5)
+15:08:44 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:09:07 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:09:07 INFO     Agent proposed [structural]: W1 (Sharpe=-0.964) has 16 trades with only 19% win rate — too many entries in a choppy/bear regime. W5 (Sharpe=-2.027) h
+15:09:07 INFO     [STRUCTURAL] W1 (Sharpe=-0.964) has 16 trades with only 19% win rate — too many entries in a choppy/bear regime. W5 (Sharpe=-2.027) has only 1 trade that lost — the strategy is too restrictive there. Key changes: (1) Replace consecutive calm bars with a smoother EMA-based vol regime filter to avoid being too binary. (2) Add a volume z-score filter to avoid entering during abnormal activity. (3) Use adaptive momentum — longer lookback for trend confirmation to filter out W1's choppy false signals. (4) Softer exit logic — replace rolling peak stop-loss with a vol-adaptive exit that doesn't trigger on single bars. (5) Add a mean-reversion guard: don't enter when price z-score is too high (>2.0) to avoid buying tops. These changes should reduce W1's excessive trading while allowing more trades in W5.
+15:09:07 INFO     Running 5 backtest windows…
+15:09:07 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:09:07 INFO         [2024-03-29 → 2024-06-28] Sharpe=-2.810  Return=-12.7%  MDD=12.7%  Trades=15  WinRate=20%
+15:09:07 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:09:08 INFO         [2024-09-05 → 2024-12-05] Sharpe=+2.931  Return=+13.1%  MDD=5.1%  Trades=3  WinRate=75%
+15:09:08 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:09:08 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.470  Return=+6.4%  MDD=7.2%  Trades=10  WinRate=40%
+15:09:08 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:09:08 INFO         [2025-07-20 → 2025-10-19] Sharpe=+1.622  Return=+5.2%  MDD=4.3%  Trades=9  WinRate=22%
+15:09:08 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:09:08 INFO         [2025-12-27 → 2026-03-28] Sharpe=+0.000  Return=+0.0%  MDD=0.0%  Trades=0  WinRate=0%
+15:09:08 WARNING  Window 5 has too few trades (0), treating Sharpe as 0
+15:09:08 INFO     Fitness: -0.3374  (mean_sharpe=0.643, std=1.960, λ=0.5)
+15:09:08 INFO     ✗ REJECTED   +0.1693 → -0.3374  (Δ=-0.5067) — reverted
+15:09:08 INFO     
+15:09:08 INFO     ══════════════════════════════════════════════════
+15:09:08 INFO       Iteration 4  (fitness so far: +0.1693)
+15:09:08 INFO     ══════════════════════════════════════════════════
+15:09:08 INFO     Running 5 backtest windows…
+15:09:08 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:09:08 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.964  Return=-4.8%  MDD=7.7%  Trades=16  WinRate=19%
+15:09:08 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:09:08 INFO         [2024-09-05 → 2024-12-05] Sharpe=+1.637  Return=+6.3%  MDD=3.7%  Trades=6  WinRate=33%
+15:09:08 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:09:08 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.948  Return=+8.1%  MDD=6.0%  Trades=11  WinRate=36%
+15:09:08 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:09:08 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.903  Return=+2.4%  MDD=9.9%  Trades=10  WinRate=20%
+15:09:08 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:09:08 INFO         [2025-12-27 → 2026-03-28] Sharpe=-2.027  Return=-2.0%  MDD=2.0%  Trades=1  WinRate=0%
+15:09:08 WARNING  Window 5 has too few trades (1), treating Sharpe as 0
+15:09:08 INFO     Fitness: 0.1693  (mean_sharpe=0.705, std=1.071, λ=0.5)
+15:09:08 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:09:32 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:09:32 INFO     Agent proposed [structural]: W1 (Sharpe=-0.964, 16 trades, 19% WinRate) is the biggest drag — too many losing trades in a choppy/bear regime. W5 (Sha
+15:09:32 INFO     [STRUCTURAL] W1 (Sharpe=-0.964, 16 trades, 19% WinRate) is the biggest drag — too many losing trades in a choppy/bear regime. W5 (Sharpe=-2.027, 1 trade, 0% WinRate) has too few trades. Key changes: (1) Add a medium-term momentum filter (close > SMA_200) to avoid entering in bear regimes like W1, reducing bad trades. (2) Relax vol_entry_thresh and calm_consecutive to allow more trades in quiet but non-trending periods like W5. (3) Replace trailing stop with ATR-based adaptive stop that's wider in calm regimes. (4) Add a volume confirmation filter to avoid low-conviction entries. (5) Use dual momentum windows for more robust trend detection.
+15:09:32 INFO     Running 5 backtest windows…
+15:09:32 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:09:32 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.878  Return=+3.0%  MDD=6.8%  Trades=11  WinRate=45%
+15:09:32 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:09:32 INFO         [2024-09-05 → 2024-12-05] Sharpe=-0.601  Return=-2.3%  MDD=6.9%  Trades=13  WinRate=23%
+15:09:32 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:09:32 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.978  Return=+8.2%  MDD=6.0%  Trades=10  WinRate=40%
+15:09:32 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:09:32 INFO         [2025-07-20 → 2025-10-19] Sharpe=+1.808  Return=+5.6%  MDD=6.2%  Trades=11  WinRate=27%
+15:09:32 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:09:32 INFO         [2025-12-27 → 2026-03-28] Sharpe=-1.489  Return=-2.7%  MDD=5.2%  Trades=5  WinRate=40%
+15:09:32 INFO     Fitness: -0.1635  (mean_sharpe=0.515, std=1.357, λ=0.5)
+15:09:32 INFO     ✗ REJECTED   +0.1693 → -0.1635  (Δ=-0.3328) — reverted
+15:09:32 INFO     
+15:09:32 INFO     ══════════════════════════════════════════════════
+15:09:32 INFO       Iteration 5  (fitness so far: +0.1693)
+15:09:32 INFO     ══════════════════════════════════════════════════
+15:09:32 INFO     Running 5 backtest windows…
+15:09:32 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:09:32 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.964  Return=-4.8%  MDD=7.7%  Trades=16  WinRate=19%
+15:09:32 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:09:32 INFO         [2024-09-05 → 2024-12-05] Sharpe=+1.637  Return=+6.3%  MDD=3.7%  Trades=6  WinRate=33%
+15:09:32 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:09:32 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.948  Return=+8.1%  MDD=6.0%  Trades=11  WinRate=36%
+15:09:32 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:09:32 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.903  Return=+2.4%  MDD=9.9%  Trades=10  WinRate=20%
+15:09:32 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:09:32 INFO         [2025-12-27 → 2026-03-28] Sharpe=-2.027  Return=-2.0%  MDD=2.0%  Trades=1  WinRate=0%
+15:09:32 WARNING  Window 5 has too few trades (1), treating Sharpe as 0
+15:09:32 INFO     Fitness: 0.1693  (mean_sharpe=0.705, std=1.071, λ=0.5)
+15:09:32 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:09:59 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:09:59 INFO     Agent proposed [structural]: W1 (Sharpe=-0.964, 16 trades, 19% WinRate) and W5 (Sharpe=-2.027, 1 trade, 0% WinRate) are the two problem windows. W1 h
+15:09:59 INFO     [STRUCTURAL] W1 (Sharpe=-0.964, 16 trades, 19% WinRate) and W5 (Sharpe=-2.027, 1 trade, 0% WinRate) are the two problem windows. W1 has too many losing trades in a choppy/bear regime — the vol filter isn't restrictive enough and the strategy enters too aggressively. W5 has only 1 trade (likely too few signals in that period). Key changes: 1) Use adaptive momentum that combines mean-reversion in high-vol and trend-following in low-vol, with stronger entry filtering. 2) Replace the fixed rolling-peak stop-loss with ATR-based trailing stop. 3) Add a volume confirmation filter to avoid low-conviction entries. 4) Relax calm_consecutive to allow more entries in W5 while tightening the z-score entry threshold to filter out bad W1 trades. 5) Add a minimum momentum magnitude filter to avoid entering flat markets.
+15:09:59 INFO     Running 5 backtest windows…
+15:09:59 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:10:00 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:10:00 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:10:00 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:10:00 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:10:00 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:10:00 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:10:00 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:10:00 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:10:00 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:10:00 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:10:00 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:10:00 INFO     ✓ ACCEPTED   +0.1693 → +0.2859  (Δ=+0.1166)
+── Fitness: +0.2859  (mean_sharpe=+0.557, std=0.542, λ=0.5)
+   Symbol: BTC/USDT  Windows: 5
+   ✓ W1: [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+   ✓ W2: [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+   ✓ W3: [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+   ✓ W4: [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+   ⚠ W5: [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:10:00 INFO     
+15:10:00 INFO     ══════════════════════════════════════════════════
+15:10:00 INFO       Iteration 6  (fitness so far: +0.2859)
+15:10:00 INFO     ══════════════════════════════════════════════════
+15:10:00 INFO     Running 5 backtest windows…
+15:10:00 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:10:00 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:10:00 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:10:00 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:10:00 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:10:00 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:10:00 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:10:00 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:10:00 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:10:00 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:10:00 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:10:00 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:10:00 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:10:31 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:10:31 INFO     Agent proposed [structural]: W5 has only 2 trades (near the 3-trade minimum) with Sharpe=-0.512, and W1 has poor win rate (33%, Sharpe=0.174). The ma
+15:10:31 INFO     [STRUCTURAL] W5 has only 2 trades (near the 3-trade minimum) with Sharpe=-0.512, and W1 has poor win rate (33%, Sharpe=0.174). The main issues are: (1) too many entry filters make it hard to generate trades in quiet/bear regimes, (2) the strategy is purely long-momentum which fails in sideways/down markets. I'm restructuring to use a dual-mode approach: momentum entries in calm regimes AND mean-reversion entries when price is statistically oversold in calm regimes. This should generate more trades in W5 and improve W1's win rate. I'm also simplifying exit logic to use adaptive exits based on entry type, and removing the slow_momentum requirement that blocks entries in bear/sideways windows.
+15:10:31 INFO     Running 5 backtest windows…
+15:10:31 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:10:32 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.652  Return=-3.0%  MDD=7.1%  Trades=11  WinRate=18%
+15:10:32 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:10:32 INFO         [2024-09-05 → 2024-12-05] Sharpe=-0.539  Return=-2.4%  MDD=5.6%  Trades=14  WinRate=21%
+15:10:32 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:10:32 INFO         [2025-02-11 → 2025-05-13] Sharpe=+2.836  Return=+12.5%  MDD=4.5%  Trades=9  WinRate=56%
+15:10:32 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:10:32 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.433  Return=+1.1%  MDD=9.4%  Trades=14  WinRate=21%
+15:10:32 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:10:32 INFO         [2025-12-27 → 2026-03-28] Sharpe=-1.186  Return=-2.5%  MDD=6.1%  Trades=1  WinRate=0%
+15:10:32 WARNING  Window 5 has too few trades (1), treating Sharpe as 0
+15:10:32 INFO     Fitness: -0.2201  (mean_sharpe=0.416, std=1.271, λ=0.5)
+15:10:32 INFO     ✗ REJECTED   +0.2859 → -0.2201  (Δ=-0.5060) — reverted
+15:10:32 INFO     
+15:10:32 INFO     ══════════════════════════════════════════════════
+15:10:32 INFO       Iteration 7  (fitness so far: +0.2859)
+15:10:32 INFO     ══════════════════════════════════════════════════
+15:10:32 INFO     Running 5 backtest windows…
+15:10:32 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:10:32 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:10:32 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:10:32 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:10:32 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:10:32 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:10:32 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:10:32 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:10:32 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:10:32 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:10:32 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:10:32 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:10:32 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:10:53 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:10:53 INFO     Agent proposed [structural]: W5 has only 2 trades (Sharpe=-0.512) and W1 has low win rate (33%, Sharpe=0.174). The main issues: (1) too many AND cond
+15:10:53 INFO     [STRUCTURAL] W5 has only 2 trades (Sharpe=-0.512) and W1 has low win rate (33%, Sharpe=0.174). The main issues: (1) too many AND conditions suppress entries in quiet/uncertain windows, (2) the slow_ma trend reversal exit causes premature exits in choppy markets. I'm simplifying to a cleaner vol-regime-filtered mean-reversion/momentum hybrid: relax entry conditions (remove min_return, volume filter, vov filter, calm_consecutive), use a simpler momentum+vol regime entry, and replace the complex exit with a cleaner ATR stop + vol spike exit. This should generate more trades in W5 while maintaining quality via the core vol regime filter.
+15:10:53 INFO     Running 5 backtest windows…
+15:10:53 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:10:53 INFO         [2024-03-29 → 2024-06-28] Sharpe=-1.044  Return=-5.6%  MDD=12.2%  Trades=17  WinRate=24%
+15:10:53 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:10:53 INFO         [2024-09-05 → 2024-12-05] Sharpe=-0.518  Return=-3.1%  MDD=11.3%  Trades=23  WinRate=17%
+15:10:53 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:10:53 INFO         [2025-02-11 → 2025-05-13] Sharpe=-0.459  Return=-3.0%  MDD=15.1%  Trades=22  WinRate=23%
+15:10:53 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:10:53 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.104  Return=+0.1%  MDD=10.2%  Trades=16  WinRate=25%
+15:10:53 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:10:53 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.382  Return=-1.1%  MDD=3.9%  Trades=5  WinRate=40%
+15:10:53 INFO     Fitness: -0.6424  (mean_sharpe=-0.460, std=0.366, λ=0.5)
+15:10:53 INFO     ✗ REJECTED   +0.2859 → -0.6424  (Δ=-0.9283) — reverted
+15:10:53 INFO     
+15:10:53 INFO     ══════════════════════════════════════════════════
+15:10:53 INFO       Iteration 8  (fitness so far: +0.2859)
+15:10:53 INFO     ══════════════════════════════════════════════════
+15:10:53 INFO     Running 5 backtest windows…
+15:10:53 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:10:53 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:10:53 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:10:53 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:10:53 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:10:53 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:10:53 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:10:53 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:10:53 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:10:53 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:10:53 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:10:53 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:10:53 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:11:20 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:11:20 INFO     Agent proposed [structural]: W5 has only 2 trades (Sharpe=-0.512) and W1 has low Sharpe (0.174, 33% WinRate). The strategy has too many conjunctive e
+15:11:20 INFO     [STRUCTURAL] W5 has only 2 trades (Sharpe=-0.512) and W1 has low Sharpe (0.174, 33% WinRate). The strategy has too many conjunctive entry filters (6 conditions ANDed), making it too restrictive in some regimes. Key changes: 1) Relax entry by removing min_return and volume filters, reducing calm_consecutive to 2. 2) Add a mean-reversion entry path alongside momentum - when vol is very low and price z-score is moderately negative, enter for bounce. 3) Use adaptive vol thresholds based on recent history. 4) Shorten slow_momentum_window to be less restrictive in choppy/sideways markets. 5) Add time-based exit to prevent holding losers too long.
+15:11:20 INFO     Running 5 backtest windows…
+15:11:20 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:11:20 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.305  Return=-1.7%  MDD=7.3%  Trades=14  WinRate=21%
+15:11:20 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:11:20 INFO         [2024-09-05 → 2024-12-05] Sharpe=-0.603  Return=-2.8%  MDD=6.1%  Trades=19  WinRate=21%
+15:11:20 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:11:20 INFO         [2025-02-11 → 2025-05-13] Sharpe=+0.808  Return=+3.1%  MDD=7.1%  Trades=15  WinRate=27%
+15:11:20 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:11:20 INFO         [2025-07-20 → 2025-10-19] Sharpe=-0.266  Return=-1.0%  MDD=9.7%  Trades=15  WinRate=27%
+15:11:20 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:11:21 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.395  Return=-0.8%  MDD=3.6%  Trades=2  WinRate=50%
+15:11:21 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:11:21 INFO     Fitness: -0.3133  (mean_sharpe=-0.073, std=0.480, λ=0.5)
+15:11:21 INFO     ✗ REJECTED   +0.2859 → -0.3133  (Δ=-0.5992) — reverted
+15:11:21 INFO     
+15:11:21 INFO     ══════════════════════════════════════════════════
+15:11:21 INFO       Iteration 9  (fitness so far: +0.2859)
+15:11:21 INFO     ══════════════════════════════════════════════════
+15:11:21 INFO     Running 5 backtest windows…
+15:11:21 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:11:21 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:11:21 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:11:21 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:11:21 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:11:21 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:11:21 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:11:21 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:11:21 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:11:21 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:11:21 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:11:21 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:11:21 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:11:47 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:11:47 INFO     Agent proposed [structural]: W5 has only 2 trades (Sharpe=-0.512) and W1 has low win rate (33%, Sharpe=0.174). The strategy has too many conjunctive 
+15:11:47 INFO     [STRUCTURAL] W5 has only 2 trades (Sharpe=-0.512) and W1 has low win rate (33%, Sharpe=0.174). The strategy has too many conjunctive entry filters that suppress trades in certain regimes. Key changes: 1) Remove slow momentum, min_return, and volume filters to generate more trades in quiet/bear windows like W5. 2) Use a simpler, more adaptive entry: vol regime calm + price above short MA + modest z-score. 3) Soften exit conditions - use wider ATR stop and less aggressive trend reversal exit. 4) Lower calm_consecutive to 2 for faster regime detection. This should increase trade count in W5 (avoiding the 0-Sharpe penalty) and improve W1 win rate by being less trend-dependent.
+15:11:47 INFO     Running 5 backtest windows…
+15:11:47 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:11:47 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.146  Return=+0.3%  MDD=5.6%  Trades=11  WinRate=27%
+15:11:47 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:11:47 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.309  Return=+0.9%  MDD=4.8%  Trades=10  WinRate=30%
+15:11:47 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:11:47 INFO         [2025-02-11 → 2025-05-13] Sharpe=+0.363  Return=+1.2%  MDD=7.9%  Trades=15  WinRate=27%
+15:11:47 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:11:47 INFO         [2025-07-20 → 2025-10-19] Sharpe=-1.057  Return=-3.6%  MDD=11.1%  Trades=16  WinRate=19%
+15:11:47 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:11:47 INFO         [2025-12-27 → 2026-03-28] Sharpe=+0.080  Return=+0.1%  MDD=3.6%  Trades=1  WinRate=100%
+15:11:47 WARNING  Window 5 has too few trades (1), treating Sharpe as 0
+15:11:47 INFO     Fitness: -0.3078  (mean_sharpe=-0.048, std=0.520, λ=0.5)
+15:11:47 INFO     ✗ REJECTED   +0.2859 → -0.3078  (Δ=-0.5937) — reverted
+15:11:47 INFO     
+15:11:47 INFO     ══════════════════════════════════════════════════
+15:11:47 INFO       Iteration 10  (fitness so far: +0.2859)
+15:11:47 INFO     ══════════════════════════════════════════════════
+15:11:47 INFO     Running 5 backtest windows…
+15:11:47 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:11:47 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:11:47 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:11:47 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:11:47 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:11:47 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:11:47 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:11:47 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:11:47 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:11:47 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:11:47 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:11:47 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:11:47 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:12:17 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:12:17 INFO     Agent proposed [structural]: W5 has only 2 trades (Sharpe=-0.512) and W1 has low win rate (33%, Sharpe=0.174). The strategy has too many conjunctive 
+15:12:17 INFO     [STRUCTURAL] W5 has only 2 trades (Sharpe=-0.512) and W1 has low win rate (33%, Sharpe=0.174). The strategy has too many conjunctive entry filters which starves trades in quiet/bearish regimes. Key changes: 1) Remove slow momentum and min_return requirements to allow more entries in diverse regimes. 2) Use adaptive vol thresholds - in low-vol environments, relax the calm regime requirement. 3) Reduce calm_consecutive to 2. 4) Add a mean-reversion entry path when price z-score is very negative AND vol is moderate (not extreme) - this captures recovery bounces in bear/choppy windows like W5. 5) Tighten ATR stop and add time-based exit to limit losses on weak trades (improving W1 win rate). The dual-path entry (momentum + mean-reversion) should generate trades across all regime types while vol filtering still provides protection.
+15:12:17 INFO     Running 5 backtest windows…
+15:12:17 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:12:18 INFO         [2024-03-29 → 2024-06-28] Sharpe=-1.498  Return=-7.1%  MDD=11.5%  Trades=17  WinRate=24%
+15:12:18 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:12:18 INFO         [2024-09-05 → 2024-12-05] Sharpe=-0.975  Return=-3.8%  MDD=7.4%  Trades=17  WinRate=18%
+15:12:18 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:12:18 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.473  Return=+6.3%  MDD=5.1%  Trades=13  WinRate=46%
+15:12:18 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:12:18 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.815  Return=+2.4%  MDD=9.5%  Trades=16  WinRate=25%
+15:12:18 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:12:18 INFO         [2025-12-27 → 2026-03-28] Sharpe=+0.238  Return=+0.4%  MDD=2.7%  Trades=2  WinRate=50%
+15:12:18 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:12:18 INFO     Fitness: -0.5855  (mean_sharpe=-0.037, std=1.097, λ=0.5)
+15:12:18 INFO     ✗ REJECTED   +0.2859 → -0.5855  (Δ=-0.8714) — reverted
+15:12:18 INFO     
+15:12:18 INFO     ══════════════════════════════════════════════════
+15:12:18 INFO       Iteration 11  (fitness so far: +0.2859)
+15:12:18 INFO     ══════════════════════════════════════════════════
+15:12:18 INFO     Running 5 backtest windows…
+15:12:18 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:12:18 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:12:18 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:12:18 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:12:18 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:12:18 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:12:18 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:12:18 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:12:18 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:12:18 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:12:18 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:12:18 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:12:18 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:12:46 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:12:46 INFO     Agent proposed [structural]: The main problems are: W5 has only 2 trades (near zero-out risk, Sharpe=-0.512), W1 has poor win rate (33%, Sharpe=0.174
+15:12:46 INFO     [STRUCTURAL] The main problems are: W5 has only 2 trades (near zero-out risk, Sharpe=-0.512), W1 has poor win rate (33%, Sharpe=0.174), and W3 is great (1.562) creating variance. The strategy has too many filters stacked (6 conditions for entry), which kills trade generation in quiet/ranging windows like W5. I'm simplifying to a cleaner approach: use vol regime as primary filter but with a much more relaxed entry (remove min_return_thresh, remove volume filter, remove vov filter, relax calm_consecutive to 2). I'll also add a mean-reversion component: when vol is moderate (not extreme), allow entries on price dips (negative z-score bouncing back), which should generate trades in choppy/sideways markets like W5. The exit logic uses a simpler adaptive stop combining vol regime exit + z-score fading + percentage trailing stop.
+15:12:46 INFO     Running 5 backtest windows…
+15:12:46 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:12:46 INFO         [2024-03-29 → 2024-06-28] Sharpe=-2.284  Return=-13.1%  MDD=17.8%  Trades=29  WinRate=10%
+15:12:46 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:12:46 INFO         [2024-09-05 → 2024-12-05] Sharpe=+1.961  Return=+13.3%  MDD=10.0%  Trades=35  WinRate=23%
+15:12:46 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:12:46 INFO         [2025-02-11 → 2025-05-13] Sharpe=-1.607  Return=-9.7%  MDD=21.5%  Trades=35  WinRate=14%
+15:12:46 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:12:46 INFO         [2025-07-20 → 2025-10-19] Sharpe=+2.256  Return=+9.6%  MDD=5.2%  Trades=22  WinRate=23%
+15:12:46 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:12:46 INFO         [2025-12-27 → 2026-03-28] Sharpe=-2.014  Return=-7.5%  MDD=8.8%  Trades=15  WinRate=13%
+15:12:46 INFO     Fitness: -1.3431  (mean_sharpe=-0.337, std=2.011, λ=0.5)
+15:12:46 INFO     ✗ REJECTED   +0.2859 → -1.3431  (Δ=-1.6290) — reverted
+15:12:46 INFO     
+15:12:46 INFO     ══════════════════════════════════════════════════
+15:12:46 INFO       Iteration 12  (fitness so far: +0.2859)
+15:12:46 INFO     ══════════════════════════════════════════════════
+15:12:46 INFO     Running 5 backtest windows…
+15:12:46 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:12:46 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:12:46 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:12:46 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:12:46 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:12:46 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:12:46 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:12:46 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:12:46 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:12:46 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:12:46 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:12:46 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:12:46 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:13:10 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:13:10 INFO     Agent proposed [structural]: The key problems are: W5 has only 2 trades (Sharpe=-0.512) and W1 has poor win rate (33%, Sharpe=0.174). The strategy ha
+15:13:10 INFO     [STRUCTURAL] The key problems are: W5 has only 2 trades (Sharpe=-0.512) and W1 has poor win rate (33%, Sharpe=0.174). The strategy has too many conjunctive entry filters (6 conditions ANDed together), which starves signal generation in quiet/uncertain regimes. The 11 failed attempts all tried structural changes that made things worse. My approach: simplify to fewer, more robust filters. I'll use a dual-mode strategy: (1) trend-following mode in calm vol regimes with relaxed entry conditions, and (2) mean-reversion mode when vol is moderate and price is oversold. This should generate more trades in W5 while improving W1 win rate. I'll also use a simpler exit: vol spike OR fixed holding period timeout, avoiding overly aggressive stops that hurt in choppy markets.
+15:13:10 INFO     Running 5 backtest windows…
+15:13:10 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:13:10 INFO         [2024-03-29 → 2024-06-28] Sharpe=-2.936  Return=-16.2%  MDD=21.2%  Trades=24  WinRate=21%
+15:13:10 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:13:10 INFO         [2024-09-05 → 2024-12-05] Sharpe=+1.130  Return=+6.0%  MDD=7.1%  Trades=23  WinRate=26%
+15:13:10 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:13:10 INFO         [2025-02-11 → 2025-05-13] Sharpe=+0.346  Return=+1.3%  MDD=13.0%  Trades=22  WinRate=27%
+15:13:10 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:13:10 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.539  Return=+1.7%  MDD=9.9%  Trades=19  WinRate=21%
+15:13:10 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:13:10 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.254  Return=-0.9%  MDD=5.5%  Trades=8  WinRate=38%
+15:13:10 INFO     Fitness: -0.9454  (mean_sharpe=-0.235, std=1.421, λ=0.5)
+15:13:10 INFO     ✗ REJECTED   +0.2859 → -0.9454  (Δ=-1.2313) — reverted
+15:13:10 INFO     
+15:13:10 INFO     ══════════════════════════════════════════════════
+15:13:10 INFO       Iteration 13  (fitness so far: +0.2859)
+15:13:10 INFO     ══════════════════════════════════════════════════
+15:13:10 INFO     Running 5 backtest windows…
+15:13:10 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:13:10 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:13:10 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:13:10 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:13:10 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:13:10 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:13:10 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:13:10 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:13:10 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:13:11 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:13:11 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:13:11 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:13:11 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:13:37 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:13:37 INFO     Agent proposed [structural]: Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has 9 trades but only 33% win rate (Sharpe=0.174). The current str
+15:13:37 INFO     [STRUCTURAL] Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has 9 trades but only 33% win rate (Sharpe=0.174). The current strategy has too many AND conditions making it hard to generate trades in quiet/bearish windows (W5), while the conditions that do pass in choppy windows (W1) aren't selective enough on quality. Key changes: 1) Remove slow_momentum, min_return, and volume_ok from entry requirements to increase trade count in all windows especially W5. 2) Use a simpler momentum signal: price above medium-term MA with a positive z-score, combined with vol regime filter. 3) Add a mean-reversion exit when price z-score gets extremely high (>2.0) to lock in profits. 4) Use a gentler calm_consecutive=2 and wider vol_entry_thresh=0.55 to allow more entries. 5) Keep ATR stop but with tighter multiplier. The goal is more trades across all windows with better exits.
+15:13:37 INFO     Running 5 backtest windows…
+15:13:37 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:13:38 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.303  Return=-1.9%  MDD=9.0%  Trades=18  WinRate=33%
+15:13:38 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:13:38 INFO         [2024-09-05 → 2024-12-05] Sharpe=-1.070  Return=-5.5%  MDD=9.0%  Trades=29  WinRate=21%
+15:13:38 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:13:38 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.208  Return=+5.1%  MDD=8.3%  Trades=21  WinRate=24%
+15:13:38 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:13:38 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.196  Return=+0.4%  MDD=8.2%  Trades=18  WinRate=28%
+15:13:38 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:13:38 INFO         [2025-12-27 → 2026-03-28] Sharpe=+0.351  Return=+0.7%  MDD=2.7%  Trades=6  WinRate=50%
+15:13:38 INFO     Fitness: -0.2998  (mean_sharpe=0.076, std=0.752, λ=0.5)
+15:13:38 INFO     ✗ REJECTED   +0.2859 → -0.2998  (Δ=-0.5857) — reverted
+15:13:38 INFO     
+15:13:38 INFO     ══════════════════════════════════════════════════
+15:13:38 INFO       Iteration 14  (fitness so far: +0.2859)
+15:13:38 INFO     ══════════════════════════════════════════════════
+15:13:38 INFO     Running 5 backtest windows…
+15:13:38 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:13:38 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:13:38 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:13:38 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:13:38 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:13:38 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:13:38 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:13:38 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:13:38 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:13:38 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:13:38 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:13:38 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:13:38 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:14:03 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:14:03 INFO     Agent proposed [structural]: Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has low win rate (33%, Sharpe=0.174). The last 8 structural attemp
+15:14:03 INFO     [STRUCTURAL] Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has low win rate (33%, Sharpe=0.174). The last 8 structural attempts all failed, suggesting the core approach is over-constrained. The key issues: (1) too many conjunctive filters (calm_regime AND stable_vov AND zscore AND trend_slow AND trend_short AND min_return AND volume_ok) starve W5 of trades, (2) the strategy is purely momentum-based but some windows are mean-reverting. My approach: simplify dramatically to a vol-regime adaptive strategy that switches between momentum and mean-reversion based on vol regime. In low-vol regimes, use momentum (breakout); in moderate-vol regimes, use mean-reversion. High-vol = stay out. This should generate more trades in all windows while being adaptive to regime character. Fewer conjunctive filters = more trades in W5; adaptive signal = better W1 performance.
+15:14:03 INFO     Running 5 backtest windows…
+15:14:03 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:14:03 INFO         [2024-03-29 → 2024-06-28] Sharpe=-1.587  Return=-8.0%  MDD=13.0%  Trades=19  WinRate=21%
+15:14:03 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:14:03 INFO         [2024-09-05 → 2024-12-05] Sharpe=-1.272  Return=-6.6%  MDD=9.8%  Trades=27  WinRate=19%
+15:14:03 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:14:03 INFO         [2025-02-11 → 2025-05-13] Sharpe=+0.558  Return=+2.0%  MDD=8.7%  Trades=17  WinRate=24%
+15:14:03 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:14:03 INFO         [2025-07-20 → 2025-10-19] Sharpe=+1.607  Return=+5.2%  MDD=7.0%  Trades=12  WinRate=33%
+15:14:03 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:14:03 INFO         [2025-12-27 → 2026-03-28] Sharpe=+1.271  Return=+2.7%  MDD=3.7%  Trades=4  WinRate=50%
+15:14:03 INFO     Fitness: -0.5395  (mean_sharpe=0.115, std=1.310, λ=0.5)
+15:14:03 INFO     ✗ REJECTED   +0.2859 → -0.5395  (Δ=-0.8254) — reverted
+15:14:03 INFO     
+15:14:03 INFO     ══════════════════════════════════════════════════
+15:14:03 INFO       Iteration 15  (fitness so far: +0.2859)
+15:14:03 INFO     ══════════════════════════════════════════════════
+15:14:03 INFO     Running 5 backtest windows…
+15:14:03 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:14:03 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:14:03 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:14:03 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:14:03 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:14:03 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:14:03 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:14:03 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:14:03 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:14:03 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:14:03 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:14:03 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:14:03 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:14:31 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:14:31 INFO     Agent proposed [structural]: Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has 9 trades with only 33% win rate (Sharpe=0.174). The main issue
+15:14:31 INFO     [STRUCTURAL] Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has 9 trades with only 33% win rate (Sharpe=0.174). The main issue is that the strategy has too many conjunctive filters (6 conditions ANDed together) which starves trade generation in quiet/different regimes like W5. All 14 previous structural attempts to fix this have failed, suggesting the core architecture needs a fundamentally different approach. Instead of AND-ing many filters, I'll use a scoring/composite approach where multiple weak signals contribute additively, and only require a threshold score. This should generate more trades across all regimes while still being selective. I'll also simplify exits to be less aggressive - using only vol regime exit and a wider ATR stop.
+15:14:31 INFO     Running 5 backtest windows…
+15:14:31 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:14:31 INFO         [2024-03-29 → 2024-06-28] Sharpe=-1.569  Return=-9.3%  MDD=13.6%  Trades=12  WinRate=25%
+15:14:31 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:14:31 INFO         [2024-09-05 → 2024-12-05] Sharpe=+3.837  Return=+39.0%  MDD=11.3%  Trades=14  WinRate=47%
+15:14:31 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:14:31 INFO         [2025-02-11 → 2025-05-13] Sharpe=+0.957  Return=+5.4%  MDD=14.0%  Trades=12  WinRate=38%
+15:14:31 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:14:31 INFO         [2025-07-20 → 2025-10-19] Sharpe=+1.058  Return=+4.2%  MDD=7.9%  Trades=12  WinRate=25%
+15:14:31 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:14:31 INFO         [2025-12-27 → 2026-03-28] Sharpe=-1.158  Return=-5.7%  MDD=10.9%  Trades=10  WinRate=30%
+15:14:31 INFO     Fitness: -0.3396  (mean_sharpe=0.625, std=1.929, λ=0.5)
+15:14:31 INFO     ✗ REJECTED   +0.2859 → -0.3396  (Δ=-0.6255) — reverted
+15:14:31 INFO     
+15:14:31 INFO     ══════════════════════════════════════════════════
+15:14:31 INFO       Iteration 16  (fitness so far: +0.2859)
+15:14:31 INFO     ══════════════════════════════════════════════════
+15:14:31 INFO     Running 5 backtest windows…
+15:14:31 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:14:31 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:14:31 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:14:31 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:14:31 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:14:31 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:14:31 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:14:31 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:14:31 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:14:31 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:14:31 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:14:31 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:14:31 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:14:59 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:14:59 INFO     Agent proposed [structural]: Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has 9 trades with only 33% win rate (Sharpe=0.174). The last 15 st
+15:14:59 INFO     [STRUCTURAL] Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has 9 trades with only 33% win rate (Sharpe=0.174). The last 15 structural attempts all failed, mostly by being too aggressive or too complex. The core issue is that the current strategy has too many conjunctive filters (6 conditions ANDed together), which starves W5 of trades. Instead of loosening all filters, I'll take a fundamentally different approach: use a simpler dual-regime system where in calm vol regimes we use momentum entries, and in ALL regimes we allow mean-reversion entries when price dips significantly below its rolling mean (catching oversold bounces). This ensures trade generation even in volatile/choppy periods like W5. Exits use a simple profit-target/stop-loss framework with vol-adaptive sizing of those thresholds.
+15:14:59 INFO     Running 5 backtest windows…
+15:14:59 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:14:59 INFO         [2024-03-29 → 2024-06-28] Sharpe=-2.092  Return=-9.2%  MDD=11.2%  Trades=19  WinRate=16%
+15:14:59 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:14:59 INFO         [2024-09-05 → 2024-12-05] Sharpe=-1.087  Return=-5.4%  MDD=10.0%  Trades=27  WinRate=15%
+15:14:59 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:14:59 INFO         [2025-02-11 → 2025-05-13] Sharpe=+0.185  Return=+0.4%  MDD=9.2%  Trades=24  WinRate=17%
+15:14:59 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:14:59 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.535  Return=+1.6%  MDD=9.6%  Trades=18  WinRate=22%
+15:14:59 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:14:59 INFO         [2025-12-27 → 2026-03-28] Sharpe=+1.614  Return=+3.1%  MDD=3.1%  Trades=4  WinRate=50%
+15:14:59 INFO     Fitness: -0.8146  (mean_sharpe=-0.169, std=1.291, λ=0.5)
+15:14:59 INFO     ✗ REJECTED   +0.2859 → -0.8146  (Δ=-1.1005) — reverted
+15:14:59 INFO     
+15:14:59 INFO     ══════════════════════════════════════════════════
+15:14:59 INFO       Iteration 17  (fitness so far: +0.2859)
+15:14:59 INFO     ══════════════════════════════════════════════════
+15:14:59 INFO     Running 5 backtest windows…
+15:14:59 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:14:59 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:14:59 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:14:59 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:14:59 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:14:59 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:14:59 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:14:59 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:14:59 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:14:59 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:14:59 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:14:59 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:14:59 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:15:18 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:15:18 INFO     Agent proposed [structural]: Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has 9 trades with only 33% win rate (Sharpe=0.174). 16 consecutive
+15:15:18 INFO     [STRUCTURAL] Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has 9 trades with only 33% win rate (Sharpe=0.174). 16 consecutive structural attempts have failed, suggesting the current approach of adding more filters is counterproductive. The root cause for W5 is too many entry conditions ANDed together (7 conditions!), preventing trades in certain regimes. For W1, the trend+momentum filters don't work in choppy markets. New approach: dramatically simplify to just 3 core conditions - vol regime filter, simple momentum, and a basic trend check. Remove vov, volume filter, min_return, calm_consecutive, and slow_momentum. Use a mean-reversion exit (zscore drops) plus vol exit. Fewer conditions = more trades across all windows = more consistent performance. Also widen the vol_entry_thresh and use a shorter vol_rank_window to be less restrictive.
+15:15:18 INFO     Running 5 backtest windows…
+15:15:18 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:15:18 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.515  Return=-3.2%  MDD=12.1%  Trades=17  WinRate=29%
+15:15:18 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:15:18 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.818  Return=+4.2%  MDD=6.5%  Trades=25  WinRate=28%
+15:15:18 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:15:18 INFO         [2025-02-11 → 2025-05-13] Sharpe=+0.161  Return=+0.3%  MDD=14.1%  Trades=20  WinRate=25%
+15:15:18 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:15:18 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.768  Return=+2.7%  MDD=8.4%  Trades=17  WinRate=24%
+15:15:18 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:15:18 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.036  Return=-0.4%  MDD=6.6%  Trades=8  WinRate=38%
+15:15:18 INFO     Fitness: -0.0123  (mean_sharpe=0.239, std=0.503, λ=0.5)
+15:15:18 INFO     ✗ REJECTED   +0.2859 → -0.0123  (Δ=-0.2982) — reverted
+15:15:18 INFO     
+15:15:18 INFO     ══════════════════════════════════════════════════
+15:15:18 INFO       Iteration 18  (fitness so far: +0.2859)
+15:15:18 INFO     ══════════════════════════════════════════════════
+15:15:18 INFO     Running 5 backtest windows…
+15:15:18 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:15:18 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:15:18 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:15:18 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:15:18 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:15:18 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:15:18 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:15:19 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:15:19 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:15:19 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:15:19 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:15:19 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:15:19 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:15:28 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:15:28 INFO     Agent proposed [parametric]: Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has low Sharpe (0.174, 33% WinRate). The 17 failed structural atte
+15:15:28 INFO     [PARAMETRIC] Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has low Sharpe (0.174, 33% WinRate). The 17 failed structural attempts suggest the current logic is reasonable but parameters are too restrictive. Key issues: (1) calm_consecutive=3 combined with strict vol/vov thresholds and dual trend confirmation blocks entries in W5. (2) W1's low win rate suggests entries are too loose in some conditions. Fix: Lower calm_consecutive to 2, raise vol_entry_thresh to 0.55, lower vov_thresh to 0.55 (more selective on vov stability), lower momentum_window to 72 for faster z-score adaptation, raise zscore_entry to 0.6 to be more selective on momentum quality, and reduce slow_momentum_window to 240 so the slow MA is more responsive. This should generate more trades in W5 while improving entry quality in W1.
+15:15:28 INFO     Running 5 backtest windows…
+15:15:28 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:15:28 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.015  Return=-0.3%  MDD=6.3%  Trades=10  WinRate=30%
+15:15:28 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:15:28 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.006  Return=-0.3%  MDD=5.3%  Trades=11  WinRate=27%
+15:15:28 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:15:28 INFO         [2025-02-11 → 2025-05-13] Sharpe=+0.987  Return=+3.7%  MDD=5.8%  Trades=9  WinRate=44%
+15:15:28 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:15:28 INFO         [2025-07-20 → 2025-10-19] Sharpe=+1.519  Return=+4.6%  MDD=8.3%  Trades=10  WinRate=30%
+15:15:28 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:15:28 INFO         [2025-12-27 → 2026-03-28] Sharpe=+0.080  Return=+0.1%  MDD=3.6%  Trades=1  WinRate=100%
+15:15:28 WARNING  Window 5 has too few trades (1), treating Sharpe as 0
+15:15:28 INFO     Fitness: 0.1805  (mean_sharpe=0.499, std=0.638, λ=0.5)
+15:15:28 INFO     ✗ REJECTED   +0.2859 → +0.1805  (Δ=-0.1054) — reverted
+15:15:28 INFO     
+15:15:28 INFO     ══════════════════════════════════════════════════
+15:15:28 INFO       Iteration 19  (fitness so far: +0.2859)
+15:15:28 INFO     ══════════════════════════════════════════════════
+15:15:28 INFO     Running 5 backtest windows…
+15:15:28 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:15:28 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:15:28 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:15:28 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:15:28 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:15:28 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:15:28 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:15:28 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:15:28 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:15:28 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:15:28 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:15:28 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:15:28 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:15:29 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 429 Too Many Requests"
+15:15:29 INFO     Retrying request to /v1/messages in 39.000000 seconds
+15:16:33 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:16:33 INFO     Agent proposed [structural]: Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has low Sharpe (+0.174, 33% WinRate). All 13 previous structural a
+15:16:33 INFO     [STRUCTURAL] Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has low Sharpe (+0.174, 33% WinRate). All 13 previous structural attempts failed because they changed too much at once. This time I'll make a minimal, targeted change to the existing working strategy: (1) relax entry conditions specifically to generate more trades in quiet/bearish windows by removing the min_return_thresh and volume_ok filters which are the most restrictive, (2) reduce calm_consecutive from 3 to 2 to allow more entries, (3) add a simple fallback mean-reversion entry when price z-score is very negative (below -1.5) in calm regimes to catch bounces in bearish windows like W5. Keep all exits identical.
+15:16:33 INFO     Running 5 backtest windows…
+15:16:33 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:16:33 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.151  Return=-1.0%  MDD=7.8%  Trades=11  WinRate=27%
+15:16:33 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:16:33 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.051  Return=-0.1%  MDD=5.6%  Trades=12  WinRate=25%
+15:16:33 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:16:33 INFO         [2025-02-11 → 2025-05-13] Sharpe=+2.214  Return=+9.7%  MDD=5.6%  Trades=13  WinRate=38%
+15:16:33 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:16:33 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.323  Return=+0.8%  MDD=9.6%  Trades=14  WinRate=29%
+15:16:33 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:16:33 INFO         [2025-12-27 → 2026-03-28] Sharpe=+0.080  Return=+0.1%  MDD=3.6%  Trades=1  WinRate=100%
+15:16:33 WARNING  Window 5 has too few trades (1), treating Sharpe as 0
+15:16:33 INFO     Fitness: 0.0492  (mean_sharpe=0.488, std=0.877, λ=0.5)
+15:16:33 INFO     ✗ REJECTED   +0.2859 → +0.0492  (Δ=-0.2367) — reverted
+15:16:33 INFO     
+15:16:33 INFO     ══════════════════════════════════════════════════
+15:16:33 INFO       Iteration 20  (fitness so far: +0.2859)
+15:16:33 INFO     ══════════════════════════════════════════════════
+15:16:33 INFO     Running 5 backtest windows…
+15:16:33 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:16:33 INFO         [2024-03-29 → 2024-06-28] Sharpe=+0.174  Return=+0.4%  MDD=6.1%  Trades=9  WinRate=33%
+15:16:33 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:16:33 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.535  Return=+1.8%  MDD=6.0%  Trades=9  WinRate=33%
+15:16:33 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:16:33 INFO         [2025-02-11 → 2025-05-13] Sharpe=+1.562  Return=+5.9%  MDD=6.3%  Trades=8  WinRate=50%
+15:16:33 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:16:33 INFO         [2025-07-20 → 2025-10-19] Sharpe=+0.513  Return=+1.4%  MDD=9.1%  Trades=12  WinRate=25%
+15:16:33 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:16:33 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.512  Return=-1.0%  MDD=4.7%  Trades=2  WinRate=50%
+15:16:33 WARNING  Window 5 has too few trades (2), treating Sharpe as 0
+15:16:33 INFO     Fitness: 0.2859  (mean_sharpe=0.557, std=0.542, λ=0.5)
+15:16:33 INFO     Calling claude-opus-4-6 [Track A (statistical_vol_regime)] for modification proposal…
+15:16:59 INFO     HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+15:16:59 INFO     Agent proposed [structural]: Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has low Sharpe (0.174, 33% WinRate). The core problem is too many 
+15:16:59 INFO     [STRUCTURAL] Analysis: W5 has only 2 trades (Sharpe=-0.512) and W1 has low Sharpe (0.174, 33% WinRate). The core problem is too many conjunctive filters killing trade generation in certain regimes. All 13 structural attempts failed because they likely changed too much at once. This time I'll make a minimal, surgical change to the existing working strategy: (1) Remove the slow_momentum and min_return_thresh requirements which are the most restrictive filters preventing trades in W5's regime, (2) Use an adaptive vol_entry_thresh that's slightly more permissive (0.55), (3) Lower calm_consecutive to 2 to allow more entries, (4) Keep everything else identical. The key insight is that W5 (Dec 2025-Mar 2026) is likely a choppy/recovery period where the slow MA trend filter blocks all entries. By removing just the slowest trend filter while keeping the vol regime + vov + zscore filters, we should generate enough trades in W5 while not degrading quality in other windows.
+15:16:59 INFO     Running 5 backtest windows…
+15:16:59 INFO       Window 1/5  2024-03-29 → 2024-06-28  (2184 bars)
+15:16:59 INFO         [2024-03-29 → 2024-06-28] Sharpe=-0.240  Return=-1.3%  MDD=6.1%  Trades=11  WinRate=27%
+15:16:59 INFO       Window 2/5  2024-09-05 → 2024-12-05  (2184 bars)
+15:16:59 INFO         [2024-09-05 → 2024-12-05] Sharpe=+0.577  Return=+1.9%  MDD=5.7%  Trades=10  WinRate=30%
+15:16:59 INFO       Window 3/5  2025-02-11 → 2025-05-13  (2184 bars)
+15:16:59 INFO         [2025-02-11 → 2025-05-13] Sharpe=+2.302  Return=+10.0%  MDD=6.5%  Trades=11  WinRate=45%
+15:16:59 INFO       Window 4/5  2025-07-20 → 2025-10-19  (2184 bars)
+15:16:59 INFO         [2025-07-20 → 2025-10-19] Sharpe=+1.766  Return=+5.3%  MDD=6.9%  Trades=9  WinRate=44%
+15:16:59 INFO       Window 5/5  2025-12-27 → 2026-03-28  (2184 bars)
+15:16:59 INFO         [2025-12-27 → 2026-03-28] Sharpe=-0.683  Return=-1.3%  MDD=4.7%  Trades=3  WinRate=33%
+15:16:59 INFO     Fitness: 0.1741  (mean_sharpe=0.744, std=1.141, λ=0.5)
+15:16:59 INFO     ✗ REJECTED   +0.2859 → +0.1741  (Δ=-0.1118) — reverted
+15:16:59 INFO     
+15:16:59 INFO     ════════════════════════════════════════════════════════════
+15:16:59 INFO       Research loop complete
+15:16:59 INFO     ════════════════════════════════════════════════════════════
+15:16:59 INFO     Iterations run : 20
+15:16:59 INFO     Accepted       : 3  (15%)
+15:16:59 INFO     Final fitness  : +0.2859
+15:16:59 INFO     Log            : /Users/kaneelfman/Documents/Claude/Projects/Autotrader/runs/track_A_statistical_vol_regime/experiment_log.jsonl

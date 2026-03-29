@@ -144,7 +144,7 @@ def fetch_ohlcv(
         )
         if coverage_ok:
             log.info("Cache hit for %s %s (%d rows)", symbol, timeframe, len(cached))
-            return cached[(cached.index >= pd.Timestamp(since_dt, tz="UTC"))].copy()
+            return cached[(cached.index >= pd.Timestamp(since_dt).tz_convert("UTC"))].copy()
 
     log.info("Fetching %s %s from exchange (days=%d)…", symbol, timeframe, days)
 
@@ -154,7 +154,15 @@ def fetch_ohlcv(
     since_ms = int(since_dt.timestamp() * 1000)
     until_ms = int(until_dt.timestamp() * 1000)
 
-    fresh = _fetch_all(exchange, symbol, timeframe, since_ms, until_ms)
+    try:
+        fresh = _fetch_all(exchange, symbol, timeframe, since_ms, until_ms)
+    except RuntimeError as e:
+        # Exchange unreachable (sandboxed env). Fall back to stale cache if available.
+        if cached is not None and not cached.empty:
+            log.warning("Exchange unreachable — using stale cache (%d rows, newest=%s): %s",
+                        len(cached), cached.index.max(), e)
+            return cached[(cached.index >= pd.Timestamp(since_dt).tz_convert("UTC"))].copy()
+        raise
 
     if fresh.empty:
         raise RuntimeError(f"No data returned for {symbol} {timeframe}")
@@ -169,7 +177,141 @@ def fetch_ohlcv(
     _save_cache(merged, cache_path)
     log.info("Fetched and cached %d rows for %s %s", len(fresh), symbol, timeframe)
 
-    return fresh[(fresh.index >= pd.Timestamp(since_dt, tz="UTC"))].copy()
+    since_ts = pd.Timestamp(since_dt).tz_localize("UTC") if pd.Timestamp(since_dt).tzinfo is None else pd.Timestamp(since_dt).tz_convert("UTC")
+    return fresh[(fresh.index >= since_ts)].copy()
+
+
+def _fetch_all_funding(
+    exchange: ccxt.Exchange,
+    symbol: str,
+    since_ms: int,
+    until_ms: int,
+) -> pd.DataFrame:
+    """Page through ccxt to collect all funding rates between since_ms and until_ms."""
+    rows: list[dict] = []
+    cursor = since_ms
+
+    max_retries = 5
+    retry_count = 0
+    while cursor < until_ms:
+        try:
+            batch = exchange.fetch_funding_rate_history(
+                symbol, since=cursor, limit=DEFAULT_LIMIT
+            )
+            retry_count = 0
+        except ccxt.NetworkError as e:
+            retry_count += 1
+            if retry_count >= max_retries:
+                raise RuntimeError(
+                    f"Exchange unreachable after {max_retries} attempts: {e}\n"
+                    "If running in a sandboxed environment, place pre-downloaded "
+                    "parquet files in data_cache/ and they will be used automatically."
+                ) from e
+            log.warning("Network error (attempt %d/%d), retrying in 5s: %s", retry_count, max_retries, e)
+            time.sleep(5)
+            continue
+        except ccxt.RateLimitExceeded:
+            time.sleep(exchange.rateLimit / 1000)
+            continue
+
+        if not batch:
+            break
+
+        for entry in batch:
+            rows.append({
+                "timestamp": entry["timestamp"],
+                "funding_rate": entry["fundingRate"],
+            })
+
+        last_ts = batch[-1]["timestamp"]
+        if last_ts <= cursor:
+            break
+        cursor = last_ts + 1
+
+        time.sleep(exchange.rateLimit / 1000)
+
+    if not rows:
+        return pd.DataFrame(columns=["funding_rate"])
+
+    df = pd.DataFrame(rows)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+    df = df.set_index("timestamp").sort_index()
+    df = df[~df.index.duplicated(keep="last")]
+    df = df[df.index < pd.Timestamp(until_ms, unit="ms", tz="UTC")]
+    return df
+
+
+def fetch_funding_rates(
+    symbol: str = "BTC/USDT:USDT",
+    days: int = 730,
+    exchange_id: str = DEFAULT_EXCHANGE,
+    force_refresh: bool = False,
+) -> pd.DataFrame:
+    """
+    Return a DataFrame of perpetual funding rates for the past `days` days.
+
+    Columns: funding_rate (float64, decimal — e.g. 0.0001 = 0.01% per 8h)
+    Index:   UTC-aware DatetimeIndex at 8h intervals
+
+    Data is cached locally. Re-fetches only if cache is missing or stale.
+
+    Args:
+        symbol:       Perpetual symbol (e.g. "BTC/USDT:USDT" for Binance linear).
+        days:         Number of days of history to fetch.
+        exchange_id:  ccxt exchange to use (must be a futures exchange).
+        force_refresh: Bypass cache entirely.
+    """
+    safe_name = symbol.replace("/", "_").replace(":", "_")
+    cache_path = CACHE_DIR / f"{safe_name}_funding.parquet"
+    now_utc = datetime.now(tz=timezone.utc)
+    since_dt = now_utc - timedelta(days=days)
+    until_dt = now_utc
+
+    cached = None if force_refresh else _load_cache(cache_path)
+
+    if cached is not None:
+        coverage_ok = (
+            cached.index.min() <= pd.Timestamp(since_dt).tz_convert("UTC") + timedelta(hours=48)
+            and cached.index.max() >= pd.Timestamp(until_dt).tz_convert("UTC") - timedelta(hours=STALE_HOURS)
+        )
+        if coverage_ok:
+            log.info("Cache hit for %s funding (%d rows)", symbol, len(cached))
+            return cached[(cached.index >= pd.Timestamp(since_dt).tz_convert("UTC"))].copy()
+
+    log.info("Fetching %s funding rates from exchange (days=%d)…", symbol, days)
+
+    exchange_class = getattr(ccxt, exchange_id)
+    exchange = exchange_class({
+        "enableRateLimit": True,
+        "options": {"defaultType": "future"},
+    })
+
+    since_ms = int(since_dt.timestamp() * 1000)
+    until_ms = int(until_dt.timestamp() * 1000)
+
+    try:
+        fresh = _fetch_all_funding(exchange, symbol, since_ms, until_ms)
+    except RuntimeError as e:
+        if cached is not None and not cached.empty:
+            log.warning("Exchange unreachable — using stale cache (%d rows, newest=%s): %s",
+                        len(cached), cached.index.max(), e)
+            return cached[(cached.index >= pd.Timestamp(since_dt).tz_convert("UTC"))].copy()
+        raise
+
+    if fresh.empty:
+        raise RuntimeError(f"No funding rate data returned for {symbol}")
+
+    if cached is not None and not cached.empty:
+        merged = pd.concat([cached, fresh])
+        merged = merged[~merged.index.duplicated(keep="last")].sort_index()
+    else:
+        merged = fresh
+
+    _save_cache(merged, cache_path)
+    log.info("Fetched and cached %d funding rate entries for %s", len(fresh), symbol)
+
+    since_ts = pd.Timestamp(since_dt).tz_localize("UTC") if pd.Timestamp(since_dt).tzinfo is None else pd.Timestamp(since_dt).tz_convert("UTC")
+    return fresh[(fresh.index >= since_ts)].copy()
 
 
 if __name__ == "__main__":

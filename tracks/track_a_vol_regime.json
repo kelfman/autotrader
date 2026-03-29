@@ -1,0 +1,23 @@
+{
+  "track_id": "A",
+  "signal_class": "statistical_vol_regime",
+  "description": "Statistical / volatility regime detection",
+  "allowed_libraries": ["numpy", "scipy.stats", "pandas"],
+  "df_columns_extra": [],
+  "signal_class_brief": "\n\nRealized volatility exhibits strong autocorrelation — high-volatility periods tend to follow high-volatility periods, and low-volatility periods tend to follow low-volatility periods. This is a mathematical property of financial return distributions (heteroskedasticity / GARCH behaviour), not a reflexive effect that depends on participants watching the same chart. A strategy that avoids entering momentum positions when the market is in a high-vol, unstable regime is exploiting a durable structural property of returns.\n\nThe core idea: compute a rolling measure of realized volatility (e.g. annualized std of log returns, or the Garman-Klass OHLC estimator), then track where current vol sits relative to its own history (z-score or percentile rank). A vol percentile below 40 signals a calm, trending-friendly regime; above 70 signals an unstable, whipsaw-prone regime. Entry filters that condition on vol regime dramatically reduce regime variance without sacrificing mean Sharpe.\n\nBeyond volatility, rolling z-scores of price (mean-reversion pressure) and volume (abnormal activity detection) are also statistically grounded. A price z-score above +2 over a 20-bar window flags statistical overextension; a rolling volume z-score above +1.5 flags unusual activity. These signals are information-theoretically equivalent to OHLCV TA but avoid the reflexivity trap because their mechanism is statistical, not chart-pattern-based.",
+
+  "reducibility_note": "Strong reducibility. Vol clustering is a mathematical property of returns (heteroskedasticity) that exists regardless of whether market participants are aware of it. Statistical z-scores and percentile ranks derive from the data's own distribution, not from collective participant behaviour.",
+
+  "exploration_hints": [
+    "Compute rolling realized vol: `np.sqrt((np.log(close / close.shift(1))**2).rolling(N).sum() * 252 * 24)` — this is annualized hourly vol.",
+    "Track vol regime via percentile rank: `vol.rolling(window=252*24).rank(pct=True)` — values below 0.4 = calm regime, above 0.7 = unstable.",
+    "Garman-Klass OHLC vol estimator: `0.5*ln(H/L)^2 - (2*ln(2)-1)*ln(C/O)^2` — more efficient than close-to-close vol.",
+    "Entry filter: only enter when vol percentile < 0.5 (calm regime). Exit if vol percentile rises above 0.7 after entry.",
+    "Rolling z-score of price: `(close - close.rolling(N).mean()) / close.rolling(N).std()` — positive z-score confirms uptrend.",
+    "Vol-of-vol: rolling std of realized vol itself. High vol-of-vol = uncertain regime; low vol-of-vol = stable regime.",
+    "Combine vol regime filter with a simple momentum signal (e.g. close > close.shift(N)) rather than EMA crossover.",
+    "Try vol regime as an EXIT signal rather than entry filter: exit when vol percentile rises sharply above entry-time vol."
+  ],
+
+  "ta_baseline_fitness": 0.4714
+}

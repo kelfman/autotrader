@@ -1,0 +1,23 @@
+{
+  "track_id": "D",
+  "signal_class": "funding_rates",
+  "description": "Perpetual futures funding rate signals",
+  "allowed_libraries": ["numpy", "pandas"],
+  "df_columns_extra": ["funding_rate"],
+  "signal_class_brief": "\n\nPerpetual futures funding rates are periodic payments between long and short holders, calibrated every 8 hours to keep the perpetual contract price anchored to spot. When the perpetual trades above spot, longs pay shorts (positive funding); when below spot, shorts pay longs (negative funding).\n\nExtreme funding rates signal crowded, one-sided positioning. Very positive funding (above ~+0.05% per 8h) means longs are paying a significant premium to stay long — this reflects overcrowded long positioning and historically precedes corrections or consolidations, as marginal longs get squeezed out by the funding cost. Very negative funding (below ~-0.01% per 8h) means shorts are paying heavily — this signals an overcrowded short position and frequently precedes short squeezes.\n\nThe mechanism is reducible: funding rate extremes create genuine structural pressure through the funding payment itself (not through participant belief). Traders with a funding rate edge are literally collecting a carry payment or paying a cost that eventually forces position closures.\n\nIn the df, the `funding_rate` column contains the 8h funding rate (as a decimal, e.g. 0.0001 = 0.01%) forward-filled to the 1h index. Typical range: -0.0001 to +0.0003. Extreme positive: above +0.0005. Extreme negative: below -0.0001. Rolling z-score of funding rate is a more robust signal than raw thresholds, as the typical funding level shifts across market regimes.",
+
+  "reducibility_note": "Strong reducibility. Funding rate pressure is a direct financial mechanism — traders literally pay or receive money based on their position. Extreme funding creates structural position pressure (forced closures, carry costs) that is independent of chart-watching behaviour. This is among the strongest reducible signals available in crypto.",
+
+  "exploration_hints": [
+    "Funding z-score: `fr_z = (funding_rate - funding_rate.rolling(N).mean()) / funding_rate.rolling(N).std()` where N = 90*3 (90 days of 8h periods = 270 bars, but in 1h you have 90*24=2160 bars — use rolling(720) for 30-day window).",
+    "Avoid entries when funding is extreme positive (fr_z > 2): crowded longs, correction risk.",
+    "Enter more aggressively (or as a standalone signal) when funding is extreme negative (fr_z < -2): short squeeze risk creates upward pressure.",
+    "Funding momentum: funding_rate.diff(3) — rising funding signals increasing long demand; falling signals position reduction.",
+    "Funding as exit signal: exit long position when funding z-score rises above 2 after entry (position becoming crowded).",
+    "Combine funding filter with a simple price momentum signal (close > close.shift(N)) rather than EMA crossover.",
+    "Funding percentile rank over trailing 30 days: funding_rate.rolling(720).rank(pct=True) — clean 0-1 signal.",
+    "Funding carry cost: compute cumulative funding paid over N bars since entry as a soft exit trigger."
+  ],
+
+  "ta_baseline_fitness": 0.4714
+}

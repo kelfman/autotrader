@@ -1,0 +1,19 @@
+{
+  "track_id": "E",
+  "signal_class": "ta_baseline",
+  "description": "TA baseline (EMA crossover — V1 continued)",
+  "allowed_libraries": ["ta", "pandas"],
+  "df_columns_extra": [],
+  "signal_class_brief": "\n\nThis track continues the V1 technical analysis baseline. The current best strategy uses EMA crossover (EMA12/EMA26) with ADX regime filter, RSI momentum confirmation, EMA50 macro trend filter, volume filter, and a 2-bar ADX hysteresis exit.\n\nIMPORTANT: 55 iterations have been run. The strategy is at a local optimum. Read RESEARCH_CONTEXT.md before proposing anything. Key failure patterns to avoid:\n  - ATR trailing stop to replace trend_fading: tried ~25 times, never worked.\n  - ADX threshold above 22: kills W2/W3 trades.\n  - Mean-reversion (BB lower touch): catastrophic failure.\n  - The W1 problem (Mar-Jun 2024, choppy regime) is structural and cannot be fixed with TA.\n\nThis track exists as the benchmark. All other V2 tracks must beat fitness +0.4714 to be considered improvements.",
+
+  "reducibility_note": "Weak reducibility. TA indicators are mathematical transformations of OHLCV — they do not add information, only extract patterns. On liquid, algorithmically-traded crypto markets, reflexive edge is thin and unstable. The 55-iteration V1 run confirmed the ceiling at +0.4714.",
+
+  "exploration_hints": [
+    "Stochastic RSI: ta.momentum.stochrsi(close, window=14, smooth1=3, smooth2=3) — has not been tried.",
+    "Dual-timeframe RSI: resample close to 4h, compute RSI, align back to 1h; require 4h RSI > 50 at entry.",
+    "min_volume_ma parametric sweep: currently 20, not tested at 10, 15, 25, 30.",
+    "Do NOT propose: ATR trailing stop exits, removing trend_fading, ADX threshold > 22, mean-reversion entries."
+  ],
+
+  "ta_baseline_fitness": 0.4714
+}

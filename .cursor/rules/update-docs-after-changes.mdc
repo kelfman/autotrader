@@ -1,0 +1,27 @@
+---
+description: Update project documentation after significant changes to the trading system
+alwaysApply: true
+---
+
+# Keep Documentation Current
+
+After making significant changes (new features, completed build steps, new track results, schema changes), update the relevant documentation before finishing:
+
+## Files to update
+
+- **`trading_system_brief.md`** — The project's living reference. Update the V2 Build Sequence checkmarks (§5.9), track results (§5.10), and V3 prerequisites (§6.3) when tracks complete or new capabilities are added.
+- **`RESEARCH_CONTEXT.md`** — Agent briefing document. Update the V2 Multi-Track Results table, per-track fitness numbers, and Status/Next Steps section when track runs finish or strategies improve.
+
+## When to update
+
+- A research track completes its iteration budget
+- A new best fitness is achieved on any track
+- A new data pipeline, track, or infrastructure feature is added
+- Build sequence steps are completed
+
+## What to update
+
+- Mark completed build steps with ✅ and add result summaries
+- Update fitness numbers, per-window breakdowns, and comparison tables
+- Add new files/directories to the RESEARCH_CONTEXT files table
+- Update V3 prerequisite status
