@@ -1,0 +1,11 @@
+{
+  "sma_period": 266,
+  "fr_pct_window": 418,
+  "fr_entry_pct": 0.6897801307637578,
+  "fr_exit_pct": 0.7603614391939418,
+  "exit_lookback": 55,
+  "vol_lookback": 52,
+  "vol_pct_window": 1070,
+  "vol_entry_pct": 0.5087891987279575,
+  "vol_exit_pct": 0.5645205325361583
+}

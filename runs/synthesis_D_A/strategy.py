@@ -1,15 +1,14 @@
 """
-strategy.py — Manual synthesis: Track D (funding rates) + Track A (vol regime).
+strategy.py — Bayesian-optimized synthesis: Track D (funding) + Track A (vol regime).
 
-Combines the two best structural signals from V2:
-  - Track D: Funding rate percentile rank as primary entry filter (+1.057 fitness)
-  - Track A: Garman-Klass vol + vol-of-vol stability as regime gate (+0.311 fitness)
+Combines Track D's funding rate percentile with Track A's Garman-Klass vol
+regime gate. Parameters jointly optimized via Optuna TPE (200 trials).
 
-Hypothesis: vol-of-vol gates out the unstable periods that weaken Track D's
-W4/W5 performance, while funding rate provides the directional signal that
-Track A lacked (fixing its low trade count problem).
+Key finding from optimization: the vol filter does heavy lifting for regime
+selection (vol_entry_pct=0.455), allowing the funding filter to be more
+permissive (fr_entry_pct=0.688) than its standalone optimum (0.52).
 
-Requires both funding_rate and OHLCV columns in the dataframe.
+Full 5-window fitness: +2.030  |  Walk-forward OOS (W4-5): +1.991
 """
 
 from __future__ import annotations
@@ -17,15 +16,15 @@ from __future__ import annotations
 import pandas as pd
 
 PARAMS: dict = {
-    "sma_period": 192,
-    "fr_pct_window": 720,
-    "fr_entry_pct": 0.52,
-    "fr_exit_pct": 0.90,
-    "exit_lookback": 38,
-    "vol_lookback": 24,
-    "vol_pct_window": 1440,
-    "vol_entry_pct": 0.65,
-    "vol_exit_pct": 0.80,
+    "sma_period": 256,
+    "fr_pct_window": 408,
+    "fr_entry_pct": 0.6879,
+    "fr_exit_pct": 0.7784,
+    "exit_lookback": 60,
+    "vol_lookback": 53,
+    "vol_pct_window": 1104,
+    "vol_entry_pct": 0.4553,
+    "vol_exit_pct": 0.5766,
 }
 
 

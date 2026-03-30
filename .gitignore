@@ -16,3 +16,6 @@ strategy.py.bak
 # Virtual envs
 .venv/
 venv/
+
+# Optuna databases (binary, resumable — regenerate with optimize_params.py)
+*.db
