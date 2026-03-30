@@ -111,17 +111,20 @@ def run_full_backtest(
     return portfolio
 
 
-def print_summary(portfolio: vbt.Portfolio, df: pd.DataFrame) -> None:
+def print_summary(portfolio: vbt.Portfolio, df: pd.DataFrame, strategy_name: str = "") -> None:
     stats = portfolio.stats()
     equity = portfolio.value()
     trades = portfolio.trades.records_readable
 
     btc_return = (df["close"].iloc[-1] / df["close"].iloc[0] - 1) * 100
     strat_return = float(stats.get("Total Return [%]", 0))
+    total_days = (df.index[-1] - df.index[0]).days
+    years_label = f"{total_days / 365:.0f}-YEAR"
+    name_label = strategy_name or "Strategy"
 
     print()
     print("=" * 70)
-    print("  FULL 2-YEAR BACKTEST — D+A Ensemble Strategy")
+    print(f"  FULL {years_label} BACKTEST — {name_label}")
     print(f"  Period: {df.index[0].date()} to {df.index[-1].date()}")
     print(f"  Starting capital: ${equity.iloc[0]:,.0f}")
     print("=" * 70)
@@ -156,6 +159,7 @@ def generate_html_report(
     portfolio: vbt.Portfolio,
     df: pd.DataFrame,
     output_path: Path,
+    strategy_name: str = "",
 ) -> None:
     """Generate an HTML equity curve report."""
     equity = portfolio.value()
@@ -167,12 +171,16 @@ def generate_html_report(
 
     btc_returns = btc_returns.reindex(returns.index).fillna(0)
 
+    total_days = (df.index[-1] - df.index[0]).days
+    years_label = f"{total_days / 365:.0f}-Year"
+    name_label = strategy_name or "Strategy"
+
     try:
         import quantstats as qs
         qs.reports.html(
             returns,
             benchmark=btc_returns,
-            title="D+A Ensemble Strategy — Full 2-Year Backtest",
+            title=f"{name_label} — Full {years_label} Backtest",
             output=str(output_path),
         )
         print(f"\n  HTML report: {output_path}")
@@ -242,10 +250,11 @@ def main() -> None:
 
     portfolio = run_full_backtest(compute_signals_fn, params, df, args.init_cash)
 
-    print_summary(portfolio, df)
+    strategy_name = strategy_path.parent.name.replace("_", " ").title()
+    print_summary(portfolio, df, strategy_name=strategy_name)
 
     output_path = Path(args.output)
-    generate_html_report(portfolio, df, output_path)
+    generate_html_report(portfolio, df, output_path, strategy_name=strategy_name)
     generate_trade_log(portfolio, output_path.with_suffix(".trades.csv"))
 
 
