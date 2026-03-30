@@ -1372,17 +1372,73 @@ The improvement is comprehensive. Max drawdown duration — the primary V3 targe
 
 The V3 MTF single-best achieves the highest fitness ever recorded (+3.082) with the lowest walk-forward decay (−4.1%, meaning it improves OOS). The ensemble trades headline fitness for tighter parameter convergence and near-zero decay.
 
-#### 6.8.6 Implications for Phase 2
+#### 6.8.6 Extended Validation — 5-Year Backtest (March 2026)
 
-1. **The MTF ensemble is the new base strategy.** All subsequent V3 phases should build on `runs/v3_mtf/strategy.py`, not the V2 D+A ensemble.
+To test whether the strategy generalises beyond its 2-year training window, the V3 MTF ensemble was evaluated on 5 years of data (Apr 2021 – Mar 2026). The 3 years prior to the training period (2021–2023) are completely unseen — the parameters were never optimised on this data.
+
+**9-window evaluation (5 years, 91-day windows):**
+
+Fitness: **+1.187** (mean_sharpe=+1.800, std=1.226)
+
+| Window | Period | Sharpe | Return | MDD | Trades |
+|--------|--------|--------|--------|-----|--------|
+| W1 | Apr–Jun 2021 (bull peak) | +1.390 | +9.7% | 9.7% | 3 |
+| W2 | Nov 2021–Feb 2022 (bear start) | +0.584 | +1.4% | 5.5% | 1 (⚠) |
+| W3 | Jun–Sep 2022 (deep bear) | +1.494 | +8.7% | 5.9% | 3 |
+| W4 | Jan–Apr 2023 (bottom) | +0.073 | −0.5% | 12.2% | 5 |
+| W5 | Aug–Nov 2023 (recovery) | +3.733 | +13.3% | 4.1% | 12 |
+| W6 | Mar–Jun 2024 (choppy) | +3.481 | +15.7% | 3.9% | 8 |
+| W7 | Oct 2024–Jan 2025 (bull) | +1.599 | +8.2% | 7.7% | 6 |
+| W8 | May–Aug 2025 (recovery) | +1.997 | +5.7% | 3.6% | 6 |
+| W9 | Dec 2025–Mar 2026 (recent) | +2.435 | +12.8% | 9.1% | 4 |
+
+All 9 windows have positive Sharpe. W2 (bear onset) has only 1 trade and is treated as 0 for fitness calculation. W4 (market bottom) is the weakest genuine window at +0.073 — the strategy went nearly flat during the hardest period, rather than losing. W3 (the deep 2022 bear, BTC −55%) returned **+8.7%**.
+
+**Full 5-year continuous backtest:**
+
+| Metric | V3 MTF Ensemble | BTC Buy-and-Hold |
+|--------|:-----------:|:----------------:|
+| Total Return | **+1,221%** | +12.7% |
+| Final Equity ($10k start) | **$132,111** | $11,270 |
+| Sharpe Ratio | **2.209** | — |
+| Sortino Ratio | **3.346** | — |
+| Max Drawdown | **16.7%** | ~77% |
+| Max DD Duration | **170 days** | — |
+| Total Trades | 201 | — |
+| Win Rate | 55% (111/201) | — |
+| Avg Win / Avg Loss | $1,705 / $746 | — |
+
+**Per-year breakdown:**
+
+| Year | Strategy | BTC | Market Regime |
+|------|----------|-----|---------------|
+| 2021 (Apr–Dec) | **+45.5%** | −22.0% | Bull peak → correction |
+| 2022 | **+51.1%** | −64.5% | Bear crash |
+| 2023 | +50.8% | +155.8% | Recovery rally |
+| 2024 | +99.4% | +120.3% | Bull run |
+| 2025 | **+65.3%** | −7.2% | Mixed |
+| 2026 (Jan–Mar) | **+20.6%** | −24.0% | Declining |
+
+Every single year is positive. The strategy made +51.1% during the 2022 bear crash while BTC lost 64.5% — this is the strongest possible out-of-sample validation, since the parameters were optimised entirely on 2024–2026 data. The strategy underperforms BTC during strong bull runs (2023, 2024) but dramatically outperforms in bearish and choppy conditions — consistent with the daily SMA(20) trend filter keeping the strategy flat during major downtrends.
+
+**Caveats:**
+
+1. The 5-year max DD duration (170 days) is longer than the 2-year figure (55 days). Extended data reveals periods of stagnation not visible in the training window.
+2. W2 (Nov 2021 – Feb 2022) has only 1 trade — the strategy was mostly flat during the transition from bull to bear. This is actually correct behaviour (the daily SMA turned bearish), but results in sparse data.
+3. The compounding effect flatters the headline return (+1,221%). The per-year breakdown is more informative: consistent 45–99% annual returns, not a single explosive period.
+4. 2021–2023 funding rate dynamics differ from 2024–2026 (retail-dominated vs institutional/ETF). The strategy works across both, which strengthens the structural thesis.
+
+#### 6.8.7 Implications for Phase 2
+
+1. **The MTF ensemble is the new base strategy.** All subsequent V3 phases should build on `runs/v3_mtf/strategy.py`, not the V2 D+A ensemble. The 5-year validation confirms the strategy is not overfit to 2024–2026.
 
 2. **Position sizing is not needed in current form.** The binary vol gate outperforms continuous sizing. Revisit if regime switching (§6.5.3) needs finer-grained position control — e.g., regime-specific position sizes rather than signal-derived continuous modulation.
 
 3. **Stability remains the main concern.** Even the best MTF result has 34–36% worst-case drop from ±10% parameter perturbation. Phase 2 regime switching should help — if the strategy adapts its behaviour to conditions rather than relying on one parameter set, sensitivity to individual parameters decreases.
 
-4. **W5 trade count is a risk.** The MTF single-best has only 3 trades in W5. The ensemble increases this to 4 but it's still marginal. Phase 2 should verify trade count across all windows.
+4. **Trade sparsity in transition periods.** The 5-year test reveals sparse trading during regime transitions (1 trade in Nov 2021 – Feb 2022). The strategy correctly goes flat when the daily SMA turns, but this creates windows with insufficient data for evaluation. Phase 2 should consider whether a secondary entry mechanism can find opportunities during flat periods without compromising the trend filter.
 
-5. **The full 2-year return (+207.4%) needs careful interpretation.** This is a compounded figure from 79 trades over 2 years. The windowed evaluation (which doesn't compound across windows) shows a more conservative picture: mean Sharpe +3.038. The high total return is real but reflects compounding on a $10,000 base.
+5. **The 5-year backtest confirms the structural thesis.** The daily SMA(20) + funding rate percentile combination works across structurally different market regimes (retail-dominated 2021–2023, institutional 2024–2026) without parameter adjustment. This is the strongest evidence yet that the funding rate signal and daily trend filter capture genuine structural properties of the market.
 
 ---
 
