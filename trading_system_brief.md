@@ -1428,7 +1428,64 @@ Every single year is positive. The strategy made +51.1% during the 2022 bear cra
 3. The compounding effect flatters the headline return (+1,221%). The per-year breakdown is more informative: consistent 45–99% annual returns, not a single explosive period.
 4. 2021–2023 funding rate dynamics differ from 2024–2026 (retail-dominated vs institutional/ETF). The strategy works across both, which strengthens the structural thesis.
 
-#### 6.8.7 Implications for Phase 2
+#### 6.8.7 Cross-Asset Validation — ETH/USDT (March 2026)
+
+The V3 MTF ensemble was tested on ETH/USDT with **zero parameter changes** — the same BTC-optimized parameters applied to ETH funding rates and price data. This is a cross-asset out-of-sample test: if the strategy works on ETH, the signals capture structural properties of crypto perpetual futures markets, not BTC-specific patterns.
+
+**9-window evaluation (ETH, 5 years): fitness +0.750**
+
+| Window | Period | BTC Sharpe | ETH Sharpe | ETH Return | ETH Trades |
+|--------|--------|:----------:|:----------:|:----------:|:----------:|
+| W1 | Apr–Jun 2021 (bull peak) | +1.390 | **−1.162** | −10.9% | 4 |
+| W2 | Nov 2021–Feb 2022 (bear start) | 0 (⚠) | 0 (⚠) | +0.9% | 1 |
+| W3 | Jun–Sep 2022 (deep bear) | +1.494 | +0.920 | +7.2% | 6 |
+| W4 | Jan–Apr 2023 (bottom) | +0.073 | **−0.237** | −2.7% | 5 |
+| W5 | Aug–Nov 2023 (recovery) | +3.733 | +4.263 | +17.1% | 8 |
+| W6 | Mar–Jun 2024 (choppy) | +3.481 | +2.681 | +15.7% | 7 |
+| W7 | Oct 2024–Jan 2025 (bull) | +1.599 | +0.917 | +5.3% | 4 |
+| W8 | May–Aug 2025 (recovery) | +1.997 | **+4.910** | +48.7% | 11 |
+| W9 | Dec 2025–Mar 2026 (recent) | +2.435 | +3.673 | +26.4% | 6 |
+
+7 of 9 windows positive. The two negative ETH windows (W1, W4) correspond to ETH-specific events: the May 2021 flash crash (ETH −60% in 2 weeks) and the choppy 2023 bottom. BTC was positive in both these periods, indicating ETH-specific idiosyncratic risk.
+
+**Full 5-year continuous backtest (ETH vs BTC comparison):**
+
+| Metric | BTC (5yr) | ETH (5yr, BTC params) |
+|--------|:---------:|:---------------------:|
+| Strategy Return | +1,221% | **+3,172%** |
+| Buy-and-Hold | +12.7% | +4.8% |
+| Final Equity ($10k) | $132,111 | **$327,170** |
+| Sharpe Ratio | 2.209 | **2.374** |
+| Sortino Ratio | 3.346 | **3.644** |
+| Max Drawdown | 16.7% | 25.5% |
+| Max DD Duration | 170 days | **142 days** |
+| Total Trades | 201 | 194 |
+| Win Rate | 55% | **61%** |
+
+**Per-year breakdown (ETH):**
+
+| Year | Strategy | ETH | Market Regime |
+|------|----------|-----|---------------|
+| 2021 (Apr–Dec) | **+91.6%** | +90.2% | Bull peak |
+| 2022 | **+101.6%** | −67.9% | Bear crash |
+| 2023 | +72.2% | +91.1% | Recovery |
+| 2024 | +72.7% | +45.4% | Bull run |
+| 2025 | **+114.1%** | −11.7% | Mixed |
+| 2026 (Jan–Mar) | **+31.9%** | −32.0% | Declining |
+
+Every year positive on ETH. The strategy made **+101.6% during the 2022 crash** while ETH lost 67.9%. ETH's higher volatility amplifies both gains and losses — the strategy achieves higher total returns (+3,172% vs +1,221%) but with higher max drawdown (25.5% vs 16.7%).
+
+**Key findings:**
+
+1. **The funding rate + daily SMA mechanism is not BTC-specific.** It works on ETH with zero parameter changes, confirming the signals capture a structural property of crypto perpetual futures markets: the relationship between funding rate positioning, daily trend, and vol regime.
+
+2. **ETH amplifies the strategy.** Higher beta means larger moves in the direction the strategy trades. When the daily SMA(20) trend filter is correct, ETH's larger swings produce larger profits.
+
+3. **ETH-specific risks exist.** W1 (May 2021 flash crash) and W4 (2023 bottom) are negative on ETH but positive on BTC. ETH has more violent idiosyncratic moves that occasionally catch the strategy. Asset-specific parameter tuning could address this.
+
+4. **A two-asset portfolio would diversify risk.** Running the strategy on both BTC and ETH with equal allocation would likely smooth drawdowns — the negative ETH windows don't overlap with negative BTC windows.
+
+#### 6.8.8 Implications for Phase 2
 
 1. **The MTF ensemble is the new base strategy.** All subsequent V3 phases should build on `runs/v3_mtf/strategy.py`, not the V2 D+A ensemble. The 5-year validation confirms the strategy is not overfit to 2024–2026.
 
