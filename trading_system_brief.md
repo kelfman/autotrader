@@ -962,72 +962,447 @@ Track G joins Track A as a weak-but-genuine signal: it captures something real (
 
 ---
 
-## 6. V3 — Orchestrator (Deferred)
+## 6. V3 — Research Director
 
-V3 introduces a **super-orchestrator agent** that manages the research programme as a portfolio of experiments rather than independent tracks. V3 is deferred until V2 produces validated findings from at least two signal classes.
+V2 explored 7 signal classes and found one strong result (funding rates) plus one weak gate (vol regime). The original V3 spec (an orchestrator managing a portfolio of research tracks) assumed multiple strong signal classes would emerge. They didn't. The bottleneck is not track management — it's that the system's most valuable decisions were *structural* ones made by a human: "try Bayesian optimization," "the strategy contract is the limitation," "test the rest of the derivatives family." V3 should automate that level of reasoning.
 
-### 6.1 Orchestrator Responsibilities
+### 6.1 V2 Retrospective — What the System Can't Do Yet
 
-**Track registry.** Maintains a manifest of active signal classes, their status (exploring / plateaued / validated), and their best achieved fitness.
+The research loop is good at **parametric exploration within a fixed structure**: given a strategy template and a search space, it finds good parameters. Between Optuna (200 trials in 89s) and the LLM agent (structural proposals with oversight), the system is effective at local search.
 
-**Bandit allocation.** Dynamically reallocates iteration budgets toward tracks showing improvement and away from plateaued tracks. Uses a UCB1 or Thompson sampling policy over track-level fitness trajectories.
+What it cannot do:
 
-**Rejection memory.** Cross-track record of definitively rejected hypotheses — configurations the system tried and found ineffective. Prevents redundant re-exploration across tracks and across runs.
+1. **Recognise when the search space itself is the constraint.** The D+A synthesis went from −0.615 to +2.030 not by finding better parameters in the original space, but by jointly optimizing parameters that interact — something the LLM agent couldn't discover because it changes one thing at a time.
 
-**Synthesis evaluation.** Periodically asks a separate model: given the best strategies found in tracks X and Y, are their signals sufficiently orthogonal to combine beneficially, or are they correlated? Synthesis is explicitly a distinct step — not assumed to follow automatically from independent track success.
+2. **Modify its own experimental apparatus.** The `compute_signals(df, params) -> (entries, exits)` contract limits every strategy to binary decisions on a single timeframe. No amount of iteration within that contract can produce position sizing, regime switching, or multi-timeframe logic.
 
-**New track spawning.** Can spawn new tracks when it identifies an unexplored signal class adjacent to a validated one, or when a track's rejection memory reveals a hypothesis that warrants its own research programme.
+3. **Reason about what to explore next.** The system runs whatever track it's told to run. The decisions that mattered most — "try funding rates," "use Optuna for synthesis," "test basis spread" — were all human decisions informed by the signal taxonomy and experimental results.
 
-### 6.2 Discovery vs Synthesis
+4. **Manage its own equity.** 105 trades over 2 years, 423-day max drawdown duration. The strategy doesn't know when it's in a regime where it has no edge and should sit out.
 
-| | Discovery | Synthesis |
-|---|---|---|
-| Question | Does this signal class work independently? | Can validated signals be combined beneficially? |
-| Agent | Track-level research agent | Separate synthesis-evaluator agent |
-| Input | OHLCV + class-specific data | Best strategies from ≥2 validated tracks |
-| Output | Improved single-class strategy | Ensemble spec or regime-switching logic |
-| Timing | Ongoing, per track | Triggered when ≥2 tracks are validated |
+### 6.2 The Three-Level Architecture
 
-### 6.3 Prerequisites for V3
+V3 adds a **Research Director** that operates above the existing research loop and PI reviewer. The three levels:
 
-- ✅ V2 complete: at least two signal class tracks validated on out-of-sample data
-  - **Status (March 2026):** Track D passes walk-forward with OOS +0.660 (§5.13). TA baseline passes with OOS +0.779. Bayesian-optimized D+A synthesis achieves OOS **+1.991** with only 3.3% decay (§5.15.7). Gap-window holdout remains negative for all strategies — attributed to transition-period structure, not strategy failure.
-- ✅ Experiment log schema stable and queryable by the orchestrator
-- ✅ Track runner abstraction in place and functioning
-- ✅ At least one manual synthesis attempt completed — manual D+A (§5.14) failed at −0.615, demonstrating that naive AND-gating doesn't work. Bayesian optimization (§5.15) solved this, confirming the separation-of-discovery-and-synthesis principle.
-- ✅ Bayesian synthesis optimization completed — `optimize_params.py` provides the parametric optimization layer that the V3 orchestrator can invoke for any signal combination.
+| Level | Agent | Question | Operates on | Frequency |
+|-------|-------|----------|-------------|-----------|
+| **L1 — Execution** | Research agent | "What parameter/code change improves this strategy?" | Strategy files within a track | Every iteration |
+| **L2 — Oversight** | PI reviewer | "Is this track exploring the right signal class?" | Track direction, compliance | Every N iterations |
+| **L3 — Direction** | Research Director | "What kind of experiment should the system run next?" | The system's structure, goals, and infrastructure | After milestones or on schedule |
 
-**V3 readiness assessment:** All prerequisites met. The remaining gap is the fragility of the current best optimum (§5.15.7 stability check). V3's first priority should be parameter regularization or ensemble methods to produce a robust deployment-ready strategy.
+The Research Director doesn't write strategy code. It reads the full project state — results, failures, infrastructure, theory, equity curves — and produces **structural recommendations**: changes to the strategy contract, new data sources, new evaluation methods, new composition approaches. It then delegates execution to L1/L2 agents or to Optuna.
+
+### 6.3 Research Director — Input and Output
+
+**Input (project state):**
+
+The director reads a compiled state document before each review. This includes:
+
+- `RESEARCH_CONTEXT.md` and `trading_system_brief.md` (theory, results, history)
+- Equity curve analysis from the current best strategy (trade log, drawdown series, regime breakdown)
+- Per-track result summaries (fitness, trade counts, failure modes)
+- The current strategy contract and its limitations
+- The codebase structure (what components exist, what's easy vs hard to change)
+- A diff of what changed since the last review
+
+**Output (strategic review):**
+
+A structured document with:
+
+```json
+{
+  "review_type": "milestone",
+  "project_phase": "post-V2 signal exploration",
+  "key_findings": [
+    "Funding rate is the only strong signal class. Basis and OI exhausted on current data/API.",
+    "The strategy contract (binary entries/exits, single timeframe) is the binding constraint.",
+    "423-day drawdown duration indicates the strategy trades in regimes where it has no edge."
+  ],
+  "ceiling_analysis": {
+    "signal_ceiling": "OHLCV + ccxt derivatives signals largely explored. Next signals require paid data (OI history) or new sources (on-chain).",
+    "contract_ceiling": "Binary enter/exit on 1h prevents position sizing, regime switching, and multi-timeframe logic.",
+    "evaluation_ceiling": "5 fixed windows over 2 years. Strategies optimized for these specific regimes."
+  },
+  "recommended_interventions": [
+    {
+      "id": "MTF",
+      "title": "Multi-timeframe signal augmentation",
+      "category": "contract_expansion",
+      "expected_impact": "high",
+      "implementation_effort": "moderate",
+      "rationale": "...",
+      "priority": 1
+    }
+  ],
+  "execution_plan": {
+    "next_action": "Implement multi-timeframe DataFrame augmentation",
+    "delegation": "coding_agent",
+    "success_criteria": "Re-run D+A strategy with 4h and 1d columns available. Fitness improvement > 0.1 over ensemble baseline.",
+    "abort_criteria": "No fitness improvement after 200 Optuna trials with expanded parameter space."
+  }
+}
+```
+
+**Decision authority:** The director recommends. For low-risk changes (adding DataFrame columns, expanding search spaces, running new Optuna studies), it can delegate directly. For high-risk changes (modifying the backtest harness, changing the fitness function, altering the strategy contract), it produces a plan for human approval.
+
+### 6.4 Strategic Review Protocol
+
+The director follows a structured reasoning sequence:
+
+**Step 1 — State assessment.** What has been tried? What worked? What failed and why? What's the current best strategy and what does its equity curve look like?
+
+**Step 2 — Ceiling identification.** Where is the system hitting limits? Is it the signal vocabulary (need new data), the strategy expressiveness (need a richer contract), the evaluation method (need more/different windows), or the optimization approach (need better search)?
+
+**Step 3 — Intervention ideation.** For each identified ceiling, what structural change would raise it? Generate candidate interventions. These are not parameter changes — they're changes to *what the system can express or evaluate*.
+
+**Step 4 — Prioritisation.** Rank interventions by expected impact / implementation effort. Consider dependencies (e.g., position sizing requires contract change before Optuna can optimize it).
+
+**Step 5 — Execution planning.** For the top-priority intervention, produce a concrete implementation plan: what files change, what the new contract looks like, what success/abort criteria apply, and how to validate the result.
+
+**Step 6 — Delegation.** Hand the plan to the appropriate executor: coding agent for implementation, Optuna for optimization, or human for approval of high-risk changes.
+
+Reviews trigger after: (a) a track or synthesis run completes, (b) a structural change is implemented and evaluated, (c) a scheduled interval (e.g., every 50 research iterations across all tracks), or (d) on manual request.
+
+### 6.5 Structural Expansions
+
+These are the six interventions identified in the post-V2 review, ordered by priority.
+
+#### 6.5.1 Multi-Timeframe Signal Augmentation
+
+**Category:** Contract expansion (expand what a strategy can see)
+
+**Problem:** The strategy receives a single 1h DataFrame. The SMA(266) trend filter is a blunt proxy for "what's the higher timeframe trend?" It can't express "the daily trend is bullish but the 4h is pulling back to support — good entry" or "the weekly regime is bearish, don't trade regardless of hourly signals."
+
+**Solution:** Before calling `compute_signals`, resample the 1h data to 4h and 1d. Compute standard features at each timeframe (SMA, vol, momentum) and add them as prefixed columns: `h4_sma_200`, `d1_close`, `d1_vol_pct`, etc. The strategy can then use multi-timeframe confluence without any new data sources.
+
+**Implementation:**
+- New function `augment_with_timeframes(df)` that adds `h4_*` and `d1_*` columns
+- Strategy contract unchanged — `compute_signals(df, params)` still returns `(entries, exits)`, but `df` now has ~15 additional columns
+- Expand the D+A Optuna search space to include multi-timeframe parameters: `h4_sma_period`, `d1_trend_filter`, etc.
+- Run 200 trials and compare against the ensemble baseline (+1.845)
+
+**Expected impact:** High. Multi-timeframe confluence is one of the strongest structural improvements available without new data. The current SMA(266) filter may be replaced by a cleaner higher-timeframe trend measure that reduces false entries.
+
+**Success criteria:** Fitness improvement > 0.15 over ensemble baseline. Failure: no improvement after 200 trials → the 1h signal is already capturing what higher timeframes would add.
+
+#### 6.5.2 Position Sizing as Signal Output
+
+**Category:** Contract expansion (expand what a strategy can express)
+
+**Problem:** The strategy goes 100% in or 100% out. The vol regime gate hard-blocks entries rather than modulating conviction. This is why the manual D+A synthesis (§5.14) failed — AND-gating two filters chokes trade count. The Bayesian optimization (§5.15) found a workaround by relaxing thresholds, but the fundamental issue remains: the system can't express "I'm 30% confident, take a small position."
+
+**Solution:** Extend the strategy contract to return a third output:
+
+```python
+def compute_signals(df, params) -> tuple[Series, Series, Series]:
+    # entries: bool Series (when to enter)
+    # exits: bool Series (when to exit)
+    # size: float Series 0.0–1.0 (position size as fraction of capital)
+    return entries, exits, size
+```
+
+vectorbt's `Portfolio.from_signals` already supports a `size` parameter. The backtest harness needs a small modification to pass it through. Backward compatible: if the strategy returns 2 values (old contract), default to size=1.0.
+
+**Implementation:**
+- Modify `backtest.py` to accept optional size output
+- Modify `_INITIAL_STRATEGY_GENERIC` template to show the new contract
+- Strategy can use vol regime, funding rate, or any signal to modulate position size
+- The vol gate becomes: `size = 1.0 - vol_pct` (more vol → smaller position) instead of `vol_calm = vol_pct < threshold`
+
+**Expected impact:** High. Unlocks continuous conviction instead of binary gating. The D+A synthesis should benefit directly — vol regime modulates position size rather than blocking entries, addressing the core failure mode from §5.14.
+
+**Success criteria:** Improved risk-adjusted returns (higher Sortino, lower max drawdown) at similar or better total return. The 423-day drawdown duration should shorten.
+
+#### 6.5.3 Regime-Switching Strategy Dispatch
+
+**Category:** Composition (expand how strategies compose)
+
+**Problem:** The D+A synthesis AND-gates two signals into one strategy. But different market regimes may call for fundamentally different *logic*, not just different thresholds. In calm-vol / low-funding regimes: run the trend-following funding strategy. In high-vol / extreme-funding regimes: switch to a defensive mode (tight stops or flat). In bear regimes: sit out entirely.
+
+**Solution:** A meta-strategy that classifies the current regime and dispatches to sub-strategies:
+
+```python
+def compute_signals(df, params):
+    regime = classify_regime(df, params)  # -> Series of {0, 1, 2}
+    entries_0, exits_0 = strategy_trend(df, params)    # calm regime
+    entries_1, exits_1 = strategy_defensive(df, params) # volatile regime
+    entries_2, exits_2 = strategy_flat(df, params)      # bear regime
+
+    entries = where(regime == 0, entries_0, where(regime == 1, entries_1, False))
+    exits = where(regime == 0, exits_0, where(regime == 1, exits_1, True))
+    return entries, exits
+```
+
+The regime classifier uses the signals already computed (vol percentile, funding percentile, SMA direction) to determine which strategy logic runs. This is more expressive than AND-gating because each sub-strategy can have completely different entry/exit logic.
+
+**Implementation:**
+- Design regime classifier using existing vol + funding signals (no new data)
+- Write 2-3 sub-strategies (trend, defensive, flat)
+- The outer `compute_signals` routes based on regime
+- Optuna optimizes both the regime boundaries and the sub-strategy parameters
+
+**Expected impact:** High. Directly addresses the 423-day drawdown problem — the "flat" regime sub-strategy prevents dead-weight losses during periods where the funding signal has no edge. Also addresses fragility: the strategy's behaviour adapts to conditions rather than depending on one parameter set working everywhere.
+
+**Dependency:** Benefits from §6.5.2 (position sizing) — regime can modulate size continuously instead of hard-switching between sub-strategies.
+
+#### 6.5.4 Strategy Portfolio with Dynamic Allocation
+
+**Category:** Composition (expand the goal)
+
+**Problem:** The entire project optimises for one best strategy. But V2 produced three strategies with positive fitness and different failure modes: Track D (funding, strong), Track E (TA baseline, moderate), Track A (vol regime, weak). Their errors are likely uncorrelated — they fail in different windows.
+
+**Solution:** Instead of one strategy, maintain a portfolio of 2-3 strategies with allocation weights that shift based on recent performance:
+
+- Equal-weight baseline: allocate 1/3 capital to each strategy
+- Momentum allocation: overweight strategies with better recent-N-day returns
+- Inverse-volatility: allocate more to strategies with lower recent drawdown
+- The portfolio's combined equity curve should be smoother than any individual strategy
+
+**Implementation:**
+- New `portfolio_backtest.py` that runs multiple strategies on the same data and combines equity curves
+- Allocation rebalances at a fixed interval (daily or weekly)
+- No new data or strategy changes needed — just composition of existing strategies
+
+**Expected impact:** Moderate. The benefit depends on how uncorrelated the strategies actually are. If Track D and Track E fail in different windows (D fails in gap periods, E fails in W1 choppy), the portfolio smooths the equity curve. If they're correlated (both fail in bear markets), the benefit is minimal.
+
+**Success criteria:** Lower max drawdown and shorter drawdown duration than the single best strategy, at similar or better total return.
+
+#### 6.5.5 Explicit Regime Prediction
+
+**Category:** New capability (predict regime, not price)
+
+**Problem:** The fitness function tests regime robustness implicitly — it penalises variance across windows. But the strategy doesn't *know* what regime it's in. It applies the same logic everywhere and relies on the vol/funding filters to implicitly select regimes. This is why the drawdown periods are so long — the strategy keeps trading in regimes where it has no edge.
+
+**Solution:** Build a regime classifier as a first-class component:
+
+- Cluster historical market conditions into 3-5 regime states using the signals already computed (vol level, vol trend, funding level, price momentum, basis)
+- Assign a label to each bar: trending-calm, trending-volatile, choppy, bear, recovery
+- Measure the strategy's expected return *per regime* (not per window)
+- Use the regime label to either (a) gate trading (only trade in favourable regimes) or (b) select strategy parameters per regime
+
+This differs from §6.5.3 (regime switching) in that it's a standalone classifier, not embedded in the strategy. It could be used by the Research Director to understand *why* the strategy fails in certain periods and what kind of experiment would address it.
+
+**Implementation:**
+- Unsupervised clustering (KMeans, HMM, or BOCPD) on rolling features: vol percentile, funding percentile, SMA slope, return momentum
+- Label each bar in the 2-year dataset with its regime
+- Compute strategy performance statistics per regime
+- Optionally: use regime as an additional column in the DataFrame for strategy use
+
+**Expected impact:** High but uncertain. The value depends on whether the regimes identified by clustering correspond to regimes where the funding signal has edge. If they do, this directly solves the "when to trade" problem. If the clustering produces regimes that don't align with strategy performance, it's wasted effort.
+
+**Dependency:** Valuable as input to §6.5.3 (regime switching) and §6.5.6 (LLM research analyst).
+
+#### 6.5.6 LLM as Research Analyst (not Strategy Coder)
+
+**Category:** Role shift (rethink the agent's purpose)
+
+**Problem:** The LLM agent's job is "propose code changes to strategy.py." V2 showed that Optuna is better at parametric search (200 trials in 89s vs 15+ LLM iterations for the same task) and the LLM tends to converge on familiar patterns from its training data (z-score momentum, ATR stops) regardless of the signal class. The LLM's comparative advantage isn't writing strategy code — it's reading complex data and producing qualitative assessments.
+
+**Solution:** Shift the LLM's role from strategy coder to research analyst:
+
+- **Trade analysis:** After each backtest, the LLM reads the trade log and market context for each trade. It writes a narrative: "Trade #47 entered during a funding extreme but price was already extended — the trailing stop was too tight for the vol regime." This produces insights that aggregate statistics miss.
+- **Regime commentary:** Given the regime classification from §6.5.5, the LLM describes what's happening in each regime in natural language and assesses whether the strategy's logic is appropriate for it.
+- **Strategic review:** The Research Director function from §6.2 — reading full project state and producing structural recommendations.
+- **Hypothesis generation:** Instead of "change SMA from 192 to 256," the LLM proposes hypotheses: "The strategy underperforms in Q4 2024 because funding rates were compressed during the ETF approval rally — the percentile rank doesn't capture this because the lookback window includes a period of much higher funding."
+
+The key shift: the LLM produces *analysis and hypotheses*, not code. Code changes are delegated to either a coding agent (for structural changes) or Optuna (for parametric search). The LLM's output is qualitative intelligence that informs the Research Director's decisions.
+
+**Implementation:**
+- New `analyst.py` module with prompts for trade analysis, regime commentary, and strategic review
+- Fed with trade logs, equity curves, and regime data
+- Output: structured reports that the Research Director consumes
+- No changes to the backtest harness or strategy contract
+
+**Expected impact:** Uncertain but potentially high. The value is in surfacing insights that numbers miss — "the strategy's W3 failure isn't about parameters, it's about the funding rate distribution being structurally different in bear markets." These are the kinds of insights that led to the project's best decisions (trying Optuna, testing the derivatives family). Automating this reasoning is the core of the Research Director vision.
+
+### 6.6 Build Sequence
+
+Ordered by dependency and effort-to-value ratio:
+
+| Phase | Intervention | Effort | Depends on | Status |
+|-------|-------------|--------|------------|--------|
+| 1 | §6.5.2 Position sizing | Low | — | ✅ Complete — below V2 baseline |
+| 1 | §6.5.1 Multi-timeframe augmentation | Moderate | — | ✅ Complete — **new project best** |
+| 2 | §6.5.3 Regime switching | Moderate | §6.5.2 (benefits from), §6.5.5 (benefits from) | Pending |
+| 2 | §6.5.4 Strategy portfolio | Low | — | Pending |
+| 3 | §6.5.5 Regime prediction | Moderate | — | Pending |
+| 3 | §6.5.6 LLM analyst | Moderate | §6.5.5 (uses regime data) | Pending |
+| 4 | §6.3 Research Director integration | High | §6.5.6 (core reasoning), all above (toolkit) | Pending |
+
+**Phase 1 — Position sizing + Multi-timeframe (parallel, no dependencies):** ✅ Complete. See §6.8 for results.
+
+**Phase 2 — Regime switching + Strategy portfolio (builds on Phase 1):**
+Regime switching should build on the MTF strategy (not position sizing, which failed). The strategy portfolio is independent but lower priority. Both are composition approaches — combining existing capabilities in new ways.
+
+**Phase 3 — Regime prediction + LLM analyst:**
+The regime classifier produces the data that the LLM analyst consumes. Together they form the analytical backbone that the Research Director needs to make informed structural decisions.
+
+**Phase 4 — Research Director integration:**
+Wire the strategic review protocol (§6.4) into the system as an automated process. The director reads project state, runs the reasoning sequence, produces recommendations, and delegates execution. This is the capstone — it requires all previous phases to be operational so the director has a rich toolkit to work with.
+
+### 6.7 Full 2-Year Backtest Baseline (March 2026)
+
+Before implementing V3 changes, the D+A ensemble strategy was evaluated as a continuous 2-year backtest (not windowed) to establish a baseline:
+
+| Metric | V2 D+A Ensemble | BTC Buy-and-Hold |
+|--------|:-----------:|:----------------:|
+| Total Return | +14.3% | −3.5% |
+| Sharpe Ratio | 0.467 | — |
+| Max Drawdown | 21.8% | — |
+| Max DD Duration | 423 days | — |
+| Total Trades | 105 | — |
+| Win Rate | 45% | — |
+| Avg Win / Avg Loss | $249 / $177 | — |
+
+See `equity_curve.py` for the full backtest runner and `equity_report.html` for the V2 quantstats tearsheet.
+
+This baseline is what every V3 intervention must improve upon. The primary targets: reduce max drawdown duration (currently 423 days), improve Sharpe (currently 0.467), and maintain or improve total return (+14.3%).
+
+### 6.8 V3 Phase 1 Results (March 2026)
+
+Phase 1 tested two parallel expansions of the strategy contract: position sizing (§6.5.2) and multi-timeframe signal augmentation (§6.5.1). Both were implemented, Optuna-optimized (200 trials each), and validated with stability checks and walk-forward analysis.
+
+#### 6.8.1 Implementation
+
+**Position sizing (§6.5.2):**
+- Extended `backtest.py` and `equity_curve.py` to detect a 3-tuple return from `compute_signals(df, params) -> (entries, exits, size)`. The `size` Series (0.0–1.0) specifies the fraction of available cash to allocate on each entry. Fully backward compatible — 2-tuple returns default to size=1.0.
+- Created `runs/v3_position_sizing/strategy.py` with vol-based continuous sizing: `size = ceiling - (ceiling - floor) * vol_pct`, replacing the hard boolean vol gate. Funding distance from threshold provides an additional sizing bonus.
+- Added `suggest_d_a_sized` Optuna preset with 11 parameters (9 from V2 D+A + 4 sizing params, minus 2 vol gate params).
+
+**Multi-timeframe augmentation (§6.5.1):**
+- Added `augment_with_timeframes(df)` to `data.py`: resamples 1h OHLCV to 4h and 1d, computes features (close, SMA(50), SMA(200), GK vol, momentum, range) at each timeframe, adds as forward-filled prefixed columns (`h4_*`, `d1_*`).
+- Created `runs/v3_mtf/strategy.py` replacing the V2 1h SMA(266) trend filter with a daily SMA trend filter. Optional 4h confirmation and daily vol exit.
+- Added `suggest_d_a_mtf` Optuna preset with 13 parameters and `--augment-timeframes` flag to `optimize_params.py` and `equity_curve.py`.
+
+#### 6.8.2 Position Sizing Results
+
+**Best fitness: +1.545** (trial #185 of 200, 85s total)
+
+| Window | Period | Sharpe | Return | Trades |
+|--------|--------|--------|--------|--------|
+| W1 | Mar–Jun 2024 (choppy) | +1.718 | +3.9% | 4 |
+| W2 | Sep–Dec 2024 (bull) | +3.493 | +8.2% | 11 |
+| W3 | Feb–May 2025 (bear) | +2.892 | +8.6% | 11 |
+| W4 | Jul–Oct 2025 (recovery) | +1.815 | +2.7% | 8 |
+| W5 | Dec–Mar 2026 (recent) | +0.441 | +1.0% | 8 |
+
+Walk-forward OOS (W4-5): **+0.784** (49.2% decay). Stability: **60.8% worst drop** (FRAGILE).
+
+**Assessment:** Position sizing underperforms the V2 ensemble (+1.845). The optimizer found a narrow sizing range (0.32–0.52) — the vol regime works better as a hard boolean gate than as a continuous position modulator. The key issue: removing the hard vol gate to replace it with continuous sizing increased trade count in bad-vol regimes, diluting returns. The additional flexibility of continuous sizing does not compensate for the loss of the sharp filtering effect.
+
+**Key parameter importances:** `vol_size_midpoint` (26%), `fr_exit_pct` (21.4%), `fr_pct_window` (10.3%).
+
+**Conclusion:** Position sizing does not improve the D+A synthesis. The binary vol gate is more effective than continuous size modulation for this strategy structure. This finding redirects Phase 2: regime switching should build on the binary-gated MTF strategy, not on continuous position sizing.
+
+#### 6.8.3 Multi-Timeframe Results
+
+**Best fitness: +3.082** (trial #151 of 200, 82s total) — **new project best, 67% above V2 ensemble.**
+
+| Window | Period | Sharpe | Return | MDD | Trades |
+|--------|--------|--------|--------|-----|--------|
+| W1 | Mar–Jun 2024 (choppy) | +4.238 | +16.0% | 3.9% | 6 |
+| W2 | Sep–Dec 2024 (bull) | +2.367 | +11.4% | 5.8% | 12 |
+| W3 | Feb–May 2025 (bear) | +3.844 | +20.1% | 4.6% | 6 |
+| W4 | Jul–Oct 2025 (recovery) | +3.423 | +8.1% | 3.9% | 5 |
+| W5 | Dec–Mar 2026 (recent) | +3.136 | +16.6% | 9.1% | 3 |
+
+All 5 windows positive. MDD ≤ 9.1% in every window.
+
+**Walk-forward OOS (W4-5): +3.208** — the strategy actually **improves** out of sample (−4.1% decay). This is extraordinarily unusual and indicates the daily trend filter generalizes forward better than the training windows suggest.
+
+**Stability: 34.2% worst drop** (FRAGILE but improved from V2's 40.7%).
+
+**Ensemble (top-20): +2.677** (fitness), OOS +2.682 (0.5% decay), 36.4% worst drop. Parameter spreads are very tight — `d1_sma_period` range 20–30 (std=2.2), confirming the optimizer strongly converges on a 20-day daily SMA.
+
+**Optimized parameters (ensemble-averaged):**
+
+| Parameter | V2 Ensemble | V3 MTF Ensemble | Change |
+|-----------|------------|-----------------|--------|
+| Trend filter | sma_period=266 (1h) | **d1_sma_period=20 (daily)** | Timeframe shift |
+| `fr_pct_window` | 418 | 550 | Longer funding lookback |
+| `fr_entry_pct` | 0.690 | 0.685 | Similar |
+| `fr_exit_pct` | 0.760 | **0.871** | Much looser exit |
+| `exit_lookback` | 55 | 53 | Similar |
+| `vol_lookback` | 52 | **34** | Shorter vol window |
+| `vol_pct_window` | 1070 | **971** | Shorter vol lookback |
+| `vol_entry_pct` | 0.509 | **0.769** | Much more relaxed |
+| `vol_exit_pct` | 0.565 | **0.682** | More relaxed |
+
+**Key findings:**
+
+1. **The daily SMA(20) is the breakthrough.** Replacing the 1h SMA(266) with a daily SMA(20) is the single most impactful structural change in the project's history. The daily SMA captures 20 actual trading days of trend information (vs the 1h SMA's noisy 11-day lookback), providing dramatically cleaner trend identification that eliminates false entries during intraday noise.
+
+2. **4h confirmation adds no value.** The optimizer consistently sets `use_h4_confirmation=False` (0.5% importance). The daily trend filter is sufficient — 4h adds redundancy without improving signal quality.
+
+3. **Vol gate relaxes significantly.** `vol_entry_pct` jumped from 0.509 to 0.769, and `vol_exit_pct` from 0.565 to 0.682. The cleaner daily trend filter allows trading in higher-vol regimes that the V2 strategy had to avoid — the 1h SMA produced false signals during volatile periods, making the tight vol gate necessary. With the daily trend, that protection is no longer needed.
+
+4. **Funding exit loosens.** `fr_exit_pct` rose from 0.760 to 0.871. Trades stay open longer because the daily trend provides better timing for position duration — exits are driven more by the trailing low and vol spike rather than early funding exits.
+
+**Parameter importance:** `vol_pct_window` (29.6%), `d1_sma_period` (21.4%), `vol_lookback` (8.9%).
+
+#### 6.8.4 Full 2-Year Backtest — V3 MTF Ensemble (March 2026)
+
+| Metric | V2 D+A Ensemble | V3 MTF Ensemble | Change |
+|--------|:-----------:|:----------------:|:------:|
+| Total Return | +14.3% | **+207.4%** | +1350% |
+| Sharpe Ratio | 0.467 | **2.763** | +492% |
+| Sortino Ratio | — | **4.315** | — |
+| Max Drawdown | 21.8% | **9.5%** | −56% |
+| Max DD Duration | 423 days | **55 days** | −87% |
+| Total Trades | 105 | **79** | −25% |
+| Win Rate | 45% | **62%** | +38% |
+| Avg Win / Avg Loss | $249 / $177 | **$618 / $317** | +95% / +79% |
+
+See `v3_mtf_equity_report.html` for the full quantstats tearsheet.
+
+The improvement is comprehensive. Max drawdown duration — the primary V3 target — dropped from 423 to 55 days. The strategy trades less frequently (79 vs 105 trades) but with much higher quality: 62% win rate and a 1.95:1 win/loss ratio (vs 45% and 1.41:1 in V2). Sharpe improved 5.9x.
+
+#### 6.8.5 Comprehensive Comparison (March 2026)
+
+| Strategy | Full Fitness | WF OOS (W4-5) | WF Decay | Stable? |
+|----------|-------------|----------------|----------|---------|
+| Track E (TA baseline) | +0.471 | +0.779 | −143% | N/A |
+| Track D (funding standalone) | +1.064 | +0.660 | +58% | N/A |
+| D+A manual synthesis (§5.14) | −0.615 | +0.547 | N/A | N/A |
+| D+A Bayesian single-best (§5.15) | +2.030 | +1.991 | +3.3% | 55.0% No |
+| D+A Ensemble (V2 best) | +1.845 | +1.816 | +3.8% | 40.7% No |
+| V3 Position Sizing | +1.545 | +0.784 | +49.2% | 60.8% No |
+| **V3 MTF single-best** | **+3.082** | **+3.208** | **−4.1%** | 34.2% No |
+| V3 MTF Ensemble (top-20) | +2.677 | +2.682 | +0.5% | 36.4% No |
+
+The V3 MTF single-best achieves the highest fitness ever recorded (+3.082) with the lowest walk-forward decay (−4.1%, meaning it improves OOS). The ensemble trades headline fitness for tighter parameter convergence and near-zero decay.
+
+#### 6.8.6 Implications for Phase 2
+
+1. **The MTF ensemble is the new base strategy.** All subsequent V3 phases should build on `runs/v3_mtf/strategy.py`, not the V2 D+A ensemble.
+
+2. **Position sizing is not needed in current form.** The binary vol gate outperforms continuous sizing. Revisit if regime switching (§6.5.3) needs finer-grained position control — e.g., regime-specific position sizes rather than signal-derived continuous modulation.
+
+3. **Stability remains the main concern.** Even the best MTF result has 34–36% worst-case drop from ±10% parameter perturbation. Phase 2 regime switching should help — if the strategy adapts its behaviour to conditions rather than relying on one parameter set, sensitivity to individual parameters decreases.
+
+4. **W5 trade count is a risk.** The MTF single-best has only 3 trades in W5. The ensemble increases this to 4 but it's still marginal. Phase 2 should verify trade count across all windows.
+
+5. **The full 2-year return (+207.4%) needs careful interpretation.** This is a compounded figure from 79 trades over 2 years. The windowed evaluation (which doesn't compound across windows) shows a more conservative picture: mean Sharpe +3.038. The high total return is real but reflects compounding on a $10,000 base.
 
 ---
 
 ## 7. Deferred Ideas
 
-The following ideas have been considered and deliberately set aside. They are recorded here so they can be revisited once the core loop demonstrates genuine edge.
+Ideas not addressed by the V3 roadmap. Revisit when V3 is operational.
 
-**Three-layer strategy hierarchy.** Separate the system into slow (structural discovery), medium (signal recombination), and fast (parametric sizing) layers operating at different timescales. Regime failures typically propagate from fast to slow; the hierarchy lets the system respond at the right level. Deferred to V3/V4.
+**Adversarial regime generation.** A second agent generates synthetic market scenarios designed to break the current best strategy. The discovery agent must find approaches robust to both real history and adversarial stress tests.
 
-**Explicit regime detection.** A first-class regime classifier (HMM, Bayesian changepoint / BOCPD) that labels current market state and routes strategy selection. In V1/V2 the multi-window fitness function handles this implicitly. Explicit detection becomes more valuable once multiple validated strategies exist to route between.
+**Retrieval-augmented strategy memory.** Log all experiments with performance and market conditions. When current conditions resemble a historical period, retrieve strategies that worked then. Case-based reasoning for trading.
 
-**Strategy confidence decay.** Each strategy carries a trust score that decays over time and revives only with fresh out-of-sample validation. Forces continuous re-validation rather than resting on old wins. Relevant once live execution is introduced.
+**On-chain data.** Exchange flows, whale wallet monitoring, mempool analysis. High signal potential, clear mechanisms, but a fundamentally different data pipeline. Consider after V3 infrastructure is proven.
 
-**Adaptive exploration rate.** Increase exploration aggressively when live performance degrades; exploit more when performing well. Analogous to epsilon-greedy with drawdown as the trigger.
+**Open interest (with paid data).** Track F was blocked by Binance's 30-day API limit. A paid data source (CoinGlass, Glassnode) would unlock the most promising untested signal class. Consider when the Research Director identifies OI as a priority.
 
-**Adversarial regime generation.** A second agent that generates synthetic market scenarios designed to break the current best strategy. The discovery agent must find approaches robust to both real history and the adversary's stress tests.
+**Short selling.** Long-only through V1–V3. Short strategies add complexity to position sizing, risk management, and regime classification. Defer until long-only regime switching is validated.
 
-**Multi-objective portfolio.** Rather than optimising for a single best strategy, maintain a portfolio of strategies with anti-correlated performance. Allocation adapts as regimes shift. Diversification at the strategy level, not just the asset level.
+**Multi-asset expansion.** BTC-only through V3. Cross-asset portfolios (BTC + ETH + SOL) with correlated/anti-correlated allocation. Defer until single-asset portfolio management (§6.5.4) is working.
 
-**Retrieval-augmented strategy memory.** Log all experiments with their performance and the market conditions during the test period. When current conditions resemble a historical period, retrieve strategies that worked then. Case-based reasoning for trading.
-
-**On-chain data.** Exchange flows, whale wallet monitoring, mempool analysis. High signal potential, clear mechanisms, but complex data pipelines. Deferred post-V2.
-
-**Short selling.** Long-only in V1 and V2. Adds complexity to position sizing and risk management. Deferred to V4.
-
-**Position sizing variation.** Fixed position size throughout V1/V2. Kelly criterion or volatility-scaled sizing deferred until signal quality is validated.
-
-**Multi-asset expansion.** BTC and ETH only for now. Cross-asset correlation questions are better tackled after single-pair robustness is established.
-
-**Live execution.** Backtest-only until the core loop demonstrates genuine edge. Live execution requires latency management, order routing, risk limits, and monitoring infrastructure.
+**Live execution.** Paper-trading or shadow-trading against real prices. Requires latency management, order routing, risk limits, and monitoring. The natural next step after V3 produces a strategy with acceptable drawdown characteristics.
 
 ---
 

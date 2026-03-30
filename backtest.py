@@ -23,6 +23,7 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 import vectorbt as vbt
+from vectorbt.portfolio.enums import SizeType
 
 
 # ── Result type ───────────────────────────────────────────────────────────────
@@ -84,13 +85,20 @@ def run_backtest(
 
     # ── signals ───────────────────────────────────────────────────────────────
     try:
-        entries, exits = compute_signals_fn(df, params)
+        result = compute_signals_fn(df, params)
     except Exception as e:
-        # Strategy produced an error — return a penalised null result rather
-        # than crashing the research loop.
         import logging
         logging.getLogger(__name__).error("compute_signals failed: %s", e)
         return _empty_result(df)
+
+    # V3 contract: compute_signals may return (entries, exits, size) where
+    # size is a 0.0–1.0 Series representing fraction of capital to allocate.
+    # V1/V2 contract: (entries, exits) — backward compatible, defaults to 1.0.
+    size = None
+    if isinstance(result, tuple) and len(result) == 3:
+        entries, exits, size = result
+    else:
+        entries, exits = result
 
     entries = entries.fillna(False).astype(bool)
     exits   = exits.fillna(False).astype(bool)
@@ -101,14 +109,31 @@ def run_backtest(
 
     # ── portfolio simulation ──────────────────────────────────────────────────
     total_fees = fees + slippage
-    portfolio = vbt.Portfolio.from_signals(
-        close=df["close"],
-        entries=entries,
-        exits=exits,
-        init_cash=init_cash,
-        fees=total_fees,
-        freq="1h",
-    )
+
+    if size is not None:
+        size_clean = size.fillna(1.0).clip(0.0, 1.0)
+        # Per-bar sizing: use strategy's fraction on entry bars, np.inf elsewhere
+        # so exits close the full position regardless of the size Series.
+        size_arr = np.where(entries.values, size_clean.values, np.inf)
+        portfolio = vbt.Portfolio.from_signals(
+            close=df["close"],
+            entries=entries,
+            exits=exits,
+            size=size_arr,
+            size_type=SizeType.Percent,
+            init_cash=init_cash,
+            fees=total_fees,
+            freq="1h",
+        )
+    else:
+        portfolio = vbt.Portfolio.from_signals(
+            close=df["close"],
+            entries=entries,
+            exits=exits,
+            init_cash=init_cash,
+            fees=total_fees,
+            freq="1h",
+        )
 
     stats = portfolio.stats()
 

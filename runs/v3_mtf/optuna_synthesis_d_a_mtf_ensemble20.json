@@ -1,0 +1,15 @@
+{
+  "d1_sma_period": 20,
+  "h4_sma_period": 132,
+  "use_h4_confirmation": false,
+  "fr_pct_window": 550,
+  "fr_entry_pct": 0.6847850407519454,
+  "fr_exit_pct": 0.87116859510474,
+  "exit_lookback": 53,
+  "vol_lookback": 34,
+  "vol_pct_window": 971,
+  "vol_entry_pct": 0.769194206906131,
+  "vol_exit_pct": 0.6822408722545422,
+  "use_d1_vol_exit": false,
+  "d1_vol_exit_pct": 0.8292024796960258
+}

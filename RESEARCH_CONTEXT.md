@@ -399,7 +399,13 @@ relative to hourly volatility). May work on lower timeframes or in real-time.
 3. ✅ Derivative tracks explored — Track F blocked by API limits; Track G (basis) weak (+0.281, sparse/degenerate)
 4. Calendar (B), cross-pair (C), basis (G) confirmed unviable. Vol regime (A) weak but genuine gate.
 5. `optimize_params.py` provides `--preset basis`, ensemble (`--ensemble K`), and robust (`--robust`) modes
-6. **Funding rate remains the only strong standalone signal class.** The D+A ensemble is the project's best strategy. Further improvement likely requires either (a) a paid data source for OI history, (b) on-chain data, or (c) multi-timeframe approaches — all of which are new engineering projects, not incremental track additions.
+6. ✅ **V3 Phase 1 complete.** Multi-timeframe augmentation is the new project best:
+   - **V3 MTF ensemble: fitness +2.677, OOS +2.682, 0.5% decay** (see `runs/v3_mtf/strategy.py`)
+   - V3 MTF single-best: fitness +3.082, OOS +3.208, negative decay
+   - Position sizing (§6.5.2) did not improve over V2 — binary vol gate outperforms continuous sizing
+   - Full 2-year backtest: +207.4% return, Sharpe 2.763, max DD 9.5%, DD duration 55 days (vs V2: +14.3%, 0.467, 21.8%, 423 days)
+   - Key insight: daily SMA(20) trend filter replaces 1h SMA(266), providing dramatically cleaner trend identification
+7. **Next: V3 Phase 2** — Regime switching (§6.5.3) + Strategy portfolio (§6.5.4), building on the MTF base strategy
 
 **Unexplored TA ideas (low priority — V1 is at ceiling):**
 

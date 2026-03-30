@@ -522,6 +522,64 @@ def fetch_perp_ohlcv(
     return fresh[(fresh.index >= since_ts)].copy()
 
 
+# ── Multi-timeframe augmentation (V3 §6.5.1) ─────────────────────────────────
+
+def augment_with_timeframes(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Resample 1h OHLCV to 4h and 1d, compute features at each timeframe,
+    and add them as prefixed columns (h4_*, d1_*) to the original 1h DataFrame.
+
+    Features per timeframe:
+      - close, sma_50, sma_200: price and trend filters
+      - vol: Garman-Klass realized volatility (annualized)
+      - momentum: close / close.shift(1) - 1  (single-bar return at that TF)
+      - range_pct: (high - low) / close  (bar range as fraction of price)
+
+    All lower-frequency columns are forward-filled to align with the 1h index,
+    so the strategy only sees information available at each 1h bar.
+    """
+    import numpy as np
+
+    timeframes = [
+        ("h4", "4h"),
+        ("d1", "1D"),
+    ]
+
+    for prefix, rule in timeframes:
+        ohlcv_resamp = df[["open", "high", "low", "close", "volume"]].resample(rule).agg({
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+            "volume": "sum",
+        }).dropna()
+
+        close_tf = ohlcv_resamp["close"]
+        high_tf = ohlcv_resamp["high"]
+        low_tf = ohlcv_resamp["low"]
+        open_tf = ohlcv_resamp["open"]
+
+        features = pd.DataFrame(index=ohlcv_resamp.index)
+        features[f"{prefix}_close"] = close_tf
+        features[f"{prefix}_sma_50"] = close_tf.rolling(50, min_periods=1).mean()
+        features[f"{prefix}_sma_200"] = close_tf.rolling(200, min_periods=1).mean()
+
+        log_hl = np.log(high_tf / low_tf)
+        log_co = np.log(close_tf / open_tf)
+        gk_var = 0.5 * log_hl**2 - (2 * np.log(2) - 1) * log_co**2
+        bars_per_year = 365 * 24 if rule == "1D" else 365 * 6
+        features[f"{prefix}_vol"] = np.sqrt(gk_var.rolling(20, min_periods=1).mean() * bars_per_year)
+
+        features[f"{prefix}_momentum"] = close_tf.pct_change()
+        features[f"{prefix}_range_pct"] = (high_tf - low_tf) / close_tf
+
+        df = df.join(features, how="left")
+        for col in features.columns:
+            df[col] = df[col].ffill()
+
+    return df
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     df = fetch_ohlcv("BTC/USDT", "1h", days=730)

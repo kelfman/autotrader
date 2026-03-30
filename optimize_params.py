@@ -46,7 +46,7 @@ import optuna
 import pandas as pd
 
 from backtest import run_backtest
-from data import fetch_funding_rates, fetch_ohlcv
+from data import augment_with_timeframes, fetch_funding_rates, fetch_ohlcv
 from evaluate import FitnessResult, evaluate_strategy
 
 log = logging.getLogger(__name__)
@@ -103,10 +103,59 @@ def suggest_basis(trial: optuna.Trial) -> dict:
     }
 
 
+def suggest_d_a_sized(trial: optuna.Trial) -> dict:
+    """V3 D+A with continuous position sizing (brief §6.5.2)."""
+    return {
+        # Trend filter
+        "sma_period":       trial.suggest_int("sma_period", 96, 384, step=8),
+        # Funding rate
+        "fr_pct_window":    trial.suggest_int("fr_pct_window", 360, 1440, step=24),
+        "fr_entry_pct":     trial.suggest_float("fr_entry_pct", 0.30, 0.80),
+        "fr_exit_pct":      trial.suggest_float("fr_exit_pct", 0.70, 0.95),
+        # Exit
+        "exit_lookback":    trial.suggest_int("exit_lookback", 20, 72),
+        # Vol regime (for sizing)
+        "vol_lookback":     trial.suggest_int("vol_lookback", 12, 72),
+        "vol_pct_window":   trial.suggest_int("vol_pct_window", 720, 2160, step=24),
+        # Position sizing params
+        "vol_size_floor":   trial.suggest_float("vol_size_floor", 0.05, 0.50),
+        "vol_size_ceiling": trial.suggest_float("vol_size_ceiling", 0.50, 1.0),
+        "vol_size_midpoint": trial.suggest_float("vol_size_midpoint", 0.30, 0.70),
+        "fr_size_weight":   trial.suggest_float("fr_size_weight", 0.0, 1.0),
+    }
+
+
+def suggest_d_a_mtf(trial: optuna.Trial) -> dict:
+    """V3 D+A with multi-timeframe signals (brief §6.5.1)."""
+    return {
+        # Daily trend filter (replaces 1h SMA)
+        "d1_sma_period":    trial.suggest_int("d1_sma_period", 20, 200, step=10),
+        # 4h confirmation
+        "h4_sma_period":    trial.suggest_int("h4_sma_period", 20, 200, step=10),
+        "use_h4_confirmation": trial.suggest_categorical("use_h4_confirmation", [True, False]),
+        # Funding rate
+        "fr_pct_window":    trial.suggest_int("fr_pct_window", 360, 1440, step=24),
+        "fr_entry_pct":     trial.suggest_float("fr_entry_pct", 0.30, 0.80),
+        "fr_exit_pct":      trial.suggest_float("fr_exit_pct", 0.70, 0.95),
+        # Exit
+        "exit_lookback":    trial.suggest_int("exit_lookback", 20, 72),
+        # Vol regime gate
+        "vol_lookback":     trial.suggest_int("vol_lookback", 12, 72),
+        "vol_pct_window":   trial.suggest_int("vol_pct_window", 720, 2160, step=24),
+        "vol_entry_pct":    trial.suggest_float("vol_entry_pct", 0.40, 0.85),
+        "vol_exit_pct":     trial.suggest_float("vol_exit_pct", 0.55, 0.90),
+        # MTF-specific exits
+        "use_d1_vol_exit":  trial.suggest_categorical("use_d1_vol_exit", [True, False]),
+        "d1_vol_exit_pct":  trial.suggest_float("d1_vol_exit_pct", 0.60, 0.95),
+    }
+
+
 PRESETS: dict[str, Callable] = {
     "d_a": suggest_d_a,
     "d_a_b_c": suggest_d_a_b_c,
     "basis": suggest_basis,
+    "d_a_sized": suggest_d_a_sized,
+    "d_a_mtf": suggest_d_a_mtf,
 }
 
 
@@ -128,6 +177,7 @@ def load_data(
     augment_funding: bool = False,
     augment_eth: bool = False,
     augment_basis: bool = False,
+    augment_timeframes: bool = False,
 ) -> pd.DataFrame:
     """Load and augment OHLCV data once for all trials."""
     df = fetch_ohlcv(symbol, "1h", days=days)
@@ -152,6 +202,9 @@ def load_data(
         df["perp_close"] = df["perp_close"].ffill().fillna(df["close"])
         df["basis"] = df["perp_close"] - df["close"]
         df["basis_pct"] = df["basis"] / df["close"]
+
+    if augment_timeframes:
+        df = augment_with_timeframes(df)
 
     return df
 
@@ -570,6 +623,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Merge ETH/USDT data (required for Stage 2 ratio filter)")
     p.add_argument("--augment-basis", action="store_true",
                    help="Merge perp-spot basis data (required for Track G)")
+    p.add_argument("--augment-timeframes", action="store_true",
+                   help="Add 4h and 1d resampled columns (required for V3 MTF)")
     p.add_argument("--resume", action="store_true",
                    help="Resume an existing study from SQLite storage")
     p.add_argument("--stability-check", action="store_true",
@@ -686,6 +741,7 @@ def main() -> None:
         augment_funding=args.augment_funding,
         augment_eth=args.augment_eth,
         augment_basis=getattr(args, "augment_basis", False),
+        augment_timeframes=getattr(args, "augment_timeframes", False),
     )
     print(
         f"Data loaded: {len(df)} bars "

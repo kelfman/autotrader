@@ -26,8 +26,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import vectorbt as vbt
+from vectorbt.portfolio.enums import SizeType
 
-from data import fetch_funding_rates, fetch_ohlcv, fetch_perp_ohlcv
+from data import augment_with_timeframes, fetch_funding_rates, fetch_ohlcv, fetch_perp_ohlcv
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ def load_data(
     days: int = 730,
     augment_funding: bool = False,
     augment_basis: bool = False,
+    augment_timeframes: bool = False,
 ) -> pd.DataFrame:
     df = fetch_ohlcv(symbol, "1h", days=days)
 
@@ -60,6 +62,9 @@ def load_data(
         df["basis"] = df["perp_close"] - df["close"]
         df["basis_pct"] = df["basis"] / df["close"]
 
+    if augment_timeframes:
+        df = augment_with_timeframes(df)
+
     return df
 
 
@@ -70,18 +75,39 @@ def run_full_backtest(
     init_cash: float = 10_000.0,
     fees: float = 0.001,
 ) -> vbt.Portfolio:
-    entries, exits = compute_signals_fn(df, params)
+    result = compute_signals_fn(df, params)
+
+    size = None
+    if isinstance(result, tuple) and len(result) == 3:
+        entries, exits, size = result
+    else:
+        entries, exits = result
+
     entries = entries.fillna(False).astype(bool)
     exits = exits.fillna(False).astype(bool)
 
-    portfolio = vbt.Portfolio.from_signals(
-        close=df["close"],
-        entries=entries,
-        exits=exits,
-        init_cash=init_cash,
-        fees=fees,
-        freq="1h",
-    )
+    if size is not None:
+        size_clean = size.fillna(1.0).clip(0.0, 1.0)
+        size_arr = np.where(entries.values, size_clean.values, np.inf)
+        portfolio = vbt.Portfolio.from_signals(
+            close=df["close"],
+            entries=entries,
+            exits=exits,
+            size=size_arr,
+            size_type=SizeType.Percent,
+            init_cash=init_cash,
+            fees=fees,
+            freq="1h",
+        )
+    else:
+        portfolio = vbt.Portfolio.from_signals(
+            close=df["close"],
+            entries=entries,
+            exits=exits,
+            init_cash=init_cash,
+            fees=fees,
+            freq="1h",
+        )
     return portfolio
 
 
@@ -196,8 +222,10 @@ def main() -> None:
     )
 
     strategy_path = Path(args.strategy)
-    auto_funding = "funding" in strategy_path.read_text().lower()
-    auto_basis = "basis" in strategy_path.read_text().lower()
+    strat_text = strategy_path.read_text().lower()
+    auto_funding = "funding" in strat_text
+    auto_basis = "basis" in strat_text
+    auto_timeframes = "d1_" in strat_text or "h4_" in strat_text
 
     compute_signals_fn, params = load_strategy(strategy_path)
 
@@ -207,6 +235,7 @@ def main() -> None:
         days=args.days,
         augment_funding=args.augment_funding or auto_funding,
         augment_basis=args.augment_basis or auto_basis,
+        augment_timeframes=auto_timeframes,
     )
     print(f"Data: {len(df)} bars [{df.index[0].date()} -> {df.index[-1].date()}]",
           file=sys.stderr)

@@ -1,0 +1,13 @@
+{
+  "sma_period": 192,
+  "fr_pct_window": 816,
+  "fr_entry_pct": 0.6011002573262318,
+  "fr_exit_pct": 0.8838992077217289,
+  "exit_lookback": 46,
+  "vol_lookback": 12,
+  "vol_pct_window": 1032,
+  "vol_size_floor": 0.32212704963249256,
+  "vol_size_ceiling": 0.524038176166189,
+  "vol_size_midpoint": 0.6522668758270354,
+  "fr_size_weight": 0.051822462829007696
+}
