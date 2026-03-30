@@ -314,6 +314,214 @@ def fetch_funding_rates(
     return fresh[(fresh.index >= since_ts)].copy()
 
 
+# ── Open interest history ─────────────────────────────────────────────────────
+
+def _fetch_all_oi(
+    exchange: ccxt.Exchange,
+    symbol_raw: str,
+    period: str,
+    since_ms: int,
+    until_ms: int,
+) -> pd.DataFrame:
+    """Page through Binance's fapiData/openInterestHist endpoint directly.
+
+    ccxt's fetchOpenInterestHistory wrapper has a parameter-mapping bug
+    that causes Binance to reject startTime. We call the raw endpoint.
+    """
+    rows: list[dict] = []
+    cursor = since_ms
+    oi_limit = 500  # Binance max for this endpoint
+
+    max_retries = 5
+    retry_count = 0
+    while cursor < until_ms:
+        try:
+            batch = exchange.fapiDataGetOpenInterestHist({
+                "symbol": symbol_raw,
+                "period": period,
+                "limit": oi_limit,
+                "startTime": int(cursor),
+                "endTime": int(until_ms),
+            })
+            retry_count = 0
+        except ccxt.NetworkError as e:
+            retry_count += 1
+            if retry_count >= max_retries:
+                raise RuntimeError(
+                    f"Exchange unreachable after {max_retries} attempts: {e}\n"
+                    "Place pre-downloaded parquet in data_cache/ as fallback."
+                ) from e
+            log.warning("Network error (attempt %d/%d), retrying in 5s: %s",
+                        retry_count, max_retries, e)
+            time.sleep(5)
+            continue
+        except ccxt.RateLimitExceeded:
+            time.sleep(exchange.rateLimit / 1000)
+            continue
+
+        if not batch:
+            break
+
+        for entry in batch:
+            rows.append({
+                "timestamp": int(entry["timestamp"]),
+                "open_interest": float(entry["sumOpenInterestValue"]),
+            })
+
+        last_ts = int(batch[-1]["timestamp"])
+        if last_ts <= cursor:
+            break
+        cursor = last_ts + 1
+
+        time.sleep(exchange.rateLimit / 1000)
+
+    if not rows:
+        return pd.DataFrame(columns=["open_interest"])
+
+    df = pd.DataFrame(rows)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+    df = df.set_index("timestamp").sort_index()
+    df = df[~df.index.duplicated(keep="last")]
+    df = df[df.index < pd.Timestamp(until_ms, unit="ms", tz="UTC")]
+    return df
+
+
+def fetch_open_interest(
+    symbol: str = "BTC/USDT:USDT",
+    timeframe: str = "1h",
+    days: int = 730,
+    exchange_id: str = DEFAULT_EXCHANGE,
+    force_refresh: bool = False,
+) -> pd.DataFrame:
+    """
+    Return a DataFrame of open interest history for the past `days` days.
+
+    Columns: open_interest (float64, quote-currency value)
+    Index:   UTC-aware DatetimeIndex
+    """
+    safe_name = symbol.replace("/", "_").replace(":", "_")
+    cache_path = CACHE_DIR / f"{safe_name}_oi_{timeframe}.parquet"
+    now_utc = datetime.now(tz=timezone.utc)
+    since_dt = now_utc - timedelta(days=days)
+    until_dt = now_utc
+
+    cached = None if force_refresh else _load_cache(cache_path)
+
+    if cached is not None:
+        coverage_ok = (
+            cached.index.min() <= pd.Timestamp(since_dt).tz_convert("UTC") + timedelta(hours=48)
+            and cached.index.max() >= pd.Timestamp(until_dt).tz_convert("UTC") - timedelta(hours=STALE_HOURS)
+        )
+        if coverage_ok:
+            log.info("Cache hit for %s OI (%d rows)", symbol, len(cached))
+            return cached[(cached.index >= pd.Timestamp(since_dt).tz_convert("UTC"))].copy()
+
+    log.info("Fetching %s open interest from exchange (days=%d)…", symbol, days)
+
+    exchange_class = getattr(ccxt, exchange_id)
+    exchange = exchange_class({
+        "enableRateLimit": True,
+        "options": {"defaultType": "future"},
+    })
+
+    since_ms = int(since_dt.timestamp() * 1000)
+    until_ms = int(until_dt.timestamp() * 1000)
+
+    symbol_raw = symbol.replace("/", "").replace(":USDT", "")  # BTC/USDT:USDT -> BTCUSDT
+
+    try:
+        fresh = _fetch_all_oi(exchange, symbol_raw, timeframe, since_ms, until_ms)
+    except RuntimeError as e:
+        if cached is not None and not cached.empty:
+            log.warning("Exchange unreachable — using stale OI cache (%d rows): %s",
+                        len(cached), e)
+            return cached[(cached.index >= pd.Timestamp(since_dt).tz_convert("UTC"))].copy()
+        raise
+
+    if fresh.empty:
+        raise RuntimeError(f"No open interest data returned for {symbol}")
+
+    if cached is not None and not cached.empty:
+        merged = pd.concat([cached, fresh])
+        merged = merged[~merged.index.duplicated(keep="last")].sort_index()
+    else:
+        merged = fresh
+
+    _save_cache(merged, cache_path)
+    log.info("Fetched and cached %d OI entries for %s", len(fresh), symbol)
+
+    since_ts = pd.Timestamp(since_dt).tz_localize("UTC") if pd.Timestamp(since_dt).tzinfo is None else pd.Timestamp(since_dt).tz_convert("UTC")
+    return fresh[(fresh.index >= since_ts)].copy()
+
+
+# ── Perpetual futures OHLCV (for basis computation) ───────────────────────────
+
+def fetch_perp_ohlcv(
+    symbol: str = "BTC/USDT:USDT",
+    timeframe: str = "1h",
+    days: int = 730,
+    exchange_id: str = DEFAULT_EXCHANGE,
+    force_refresh: bool = False,
+) -> pd.DataFrame:
+    """
+    Return a DataFrame of perpetual futures OHLCV candles.
+
+    Same format as fetch_ohlcv() but from the futures exchange.
+    Used to compute basis spread (perp_close - spot_close).
+    """
+    safe_name = symbol.replace("/", "_").replace(":", "_")
+    cache_path = CACHE_DIR / f"{safe_name}_{timeframe}.parquet"
+    now_utc = datetime.now(tz=timezone.utc)
+    since_dt = now_utc - timedelta(days=days)
+    until_dt = now_utc
+
+    cached = None if force_refresh else _load_cache(cache_path)
+
+    if cached is not None:
+        coverage_ok = (
+            cached.index.min() <= pd.Timestamp(since_dt).tz_convert("UTC") + timedelta(hours=48)
+            and cached.index.max() >= pd.Timestamp(until_dt).tz_convert("UTC") - timedelta(hours=STALE_HOURS)
+        )
+        if coverage_ok:
+            log.info("Cache hit for %s perp OHLCV (%d rows)", symbol, len(cached))
+            return cached[(cached.index >= pd.Timestamp(since_dt).tz_convert("UTC"))].copy()
+
+    log.info("Fetching %s perp OHLCV from exchange (days=%d)…", symbol, days)
+
+    exchange_class = getattr(ccxt, exchange_id)
+    exchange = exchange_class({
+        "enableRateLimit": True,
+        "options": {"defaultType": "future"},
+    })
+
+    since_ms = int(since_dt.timestamp() * 1000)
+    until_ms = int(until_dt.timestamp() * 1000)
+
+    try:
+        fresh = _fetch_all(exchange, symbol, timeframe, since_ms, until_ms)
+    except RuntimeError as e:
+        if cached is not None and not cached.empty:
+            log.warning("Exchange unreachable — using stale perp cache (%d rows): %s",
+                        len(cached), e)
+            return cached[(cached.index >= pd.Timestamp(since_dt).tz_convert("UTC"))].copy()
+        raise
+
+    if fresh.empty:
+        raise RuntimeError(f"No perp OHLCV data returned for {symbol}")
+
+    if cached is not None and not cached.empty:
+        merged = pd.concat([cached, fresh])
+        merged = merged[~merged.index.duplicated(keep="last")].sort_index()
+    else:
+        merged = fresh
+
+    _save_cache(merged, cache_path)
+    log.info("Fetched and cached %d perp OHLCV rows for %s", len(fresh), symbol)
+
+    since_ts = pd.Timestamp(since_dt).tz_localize("UTC") if pd.Timestamp(since_dt).tzinfo is None else pd.Timestamp(since_dt).tz_convert("UTC")
+    return fresh[(fresh.index >= since_ts)].copy()
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     df = fetch_ohlcv("BTC/USDT", "1h", days=730)

@@ -1,14 +1,12 @@
 """
-strategy.py — Bayesian-optimized synthesis: Track D (funding) + Track A (vol regime).
+strategy.py — Ensemble-averaged D+A synthesis (recommended deployment candidate).
 
 Combines Track D's funding rate percentile with Track A's Garman-Klass vol
-regime gate. Parameters jointly optimized via Optuna TPE (200 trials).
+regime gate. Parameters are the ensemble average of the top-20 Optuna trials
+(§5.15.9), trading headline fitness for improved robustness.
 
-Key finding from optimization: the vol filter does heavy lifting for regime
-selection (vol_entry_pct=0.455), allowing the funding filter to be more
-permissive (fr_entry_pct=0.688) than its standalone optimum (0.52).
-
-Full 5-window fitness: +2.030  |  Walk-forward OOS (W4-5): +1.991
+Ensemble fitness: +1.845  |  Walk-forward OOS (W4-5): +1.816  |  Decay: 3.8%
+Stability: 40.7% worst drop (improved from 55% single-best)
 """
 
 from __future__ import annotations
@@ -16,15 +14,15 @@ from __future__ import annotations
 import pandas as pd
 
 PARAMS: dict = {
-    "sma_period": 256,
-    "fr_pct_window": 408,
-    "fr_entry_pct": 0.6879,
-    "fr_exit_pct": 0.7784,
-    "exit_lookback": 60,
-    "vol_lookback": 53,
-    "vol_pct_window": 1104,
-    "vol_entry_pct": 0.4553,
-    "vol_exit_pct": 0.5766,
+    "sma_period": 266,
+    "fr_pct_window": 418,
+    "fr_entry_pct": 0.6898,
+    "fr_exit_pct": 0.7604,
+    "exit_lookback": 55,
+    "vol_lookback": 52,
+    "vol_pct_window": 1070,
+    "vol_entry_pct": 0.5088,
+    "vol_exit_pct": 0.5645,
 }
 
 

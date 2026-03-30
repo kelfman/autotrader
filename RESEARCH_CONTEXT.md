@@ -379,12 +379,27 @@ Ensemble params: `sma_period=266, fr_pct_window=418, fr_entry_pct=0.6898,
 fr_exit_pct=0.7604, exit_lookback=55, vol_lookback=52, vol_pct_window=1070,
 vol_entry_pct=0.5088, vol_exit_pct=0.5645`. See `runs/synthesis_D_A/optuna_synthesis_d_a_ensemble20.json`.
 
+### Derivative Signal Tracks (March 2026)
+
+**Track F (open interest):** Blocked. Binance's `openInterestHist` API is hard-capped at
+~30 days regardless of period. Needs a paid data source for 730-day backtests.
+
+**Track G (basis spread):** 100 Optuna trials + 4 structural variants. Best fitness +0.281
+(z-score < -2.44 entry, 8 total trades in 2/5 windows). Same degenerate-optimization
+pattern as Track C — the optimizer makes the entry so extreme that only a few trades fire
+in windows where they happen to work. Walk-forward OOS +0.616 is from 5 trades in a
+single window. Extremely fragile (106% worst drop). Not viable as standalone signal.
+
+The basis mechanism is real but too weak on hourly BTC candles (basis ±0.3% is small
+relative to hourly volatility). May work on lower timeframes or in real-time.
+
 **Status / Next steps:**
 1. ✅ All V3 prerequisites met — D+A ensemble achieves OOS +1.816 with 3.8% decay
 2. ✅ Robustness addressed — ensemble averaging is the recommended deployment candidate; fragility reduced from 55% to 40.7% worst drop
-3. Calendar session effects (Track B) and BTC/ETH ratio (Track C) confirmed unviable as both standalone signals and marginal additions
-4. `optimize_params.py` provides ensemble averaging (`--ensemble K`) and robust optimization (`--robust`) modes for any future signal combination
-5. Remaining fragility (40.7%) is a structural property of the D+A strategy — further improvement likely requires new signal classes (open interest, basis spread) rather than better optimization
+3. ✅ Derivative tracks explored — Track F blocked by API limits; Track G (basis) weak (+0.281, sparse/degenerate)
+4. Calendar (B), cross-pair (C), basis (G) confirmed unviable. Vol regime (A) weak but genuine gate.
+5. `optimize_params.py` provides `--preset basis`, ensemble (`--ensemble K`), and robust (`--robust`) modes
+6. **Funding rate remains the only strong standalone signal class.** The D+A ensemble is the project's best strategy. Further improvement likely requires either (a) a paid data source for OI history, (b) on-chain data, or (c) multi-timeframe approaches — all of which are new engineering projects, not incremental track additions.
 
 **Unexplored TA ideas (low priority — V1 is at ceiling):**
 

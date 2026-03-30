@@ -55,7 +55,7 @@ if _env_path.exists():
             _k, _v = _line.split("=", 1)
             os.environ.setdefault(_k.strip(), _v.strip())
 
-from data import fetch_funding_rates, fetch_ohlcv
+from data import fetch_funding_rates, fetch_ohlcv, fetch_open_interest, fetch_perp_ohlcv
 from research_loop import run_loop
 from track_config import TrackConfig, load_track
 
@@ -171,12 +171,78 @@ def _augment_with_funding(df: pd.DataFrame) -> pd.DataFrame:
     return merged
 
 
+def _augment_with_oi(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fetch BTC perpetual open interest history and merge as a forward-filled
+    open_interest column aligned to the 1h OHLCV index.
+    """
+    log.info("Fetching BTC/USDT:USDT open interest for Track F…")
+    oi = fetch_open_interest("BTC/USDT:USDT", timeframe="1h", days=730)
+    log.info("Raw OI data: %d entries [%s → %s]",
+             len(oi), oi.index.min(), oi.index.max())
+
+    merged = df.join(oi, how="left")
+    merged["open_interest"] = merged["open_interest"].ffill()
+
+    n_missing = merged["open_interest"].isna().sum()
+    if n_missing > 0:
+        log.warning(
+            "open_interest has %d NaN rows after forward-fill — filling with 0.0",
+            n_missing,
+        )
+        merged["open_interest"] = merged["open_interest"].fillna(0.0)
+
+    log.info(
+        "Open interest merged: min=%.0f  max=%.0f  mean=%.0f",
+        merged["open_interest"].min(),
+        merged["open_interest"].max(),
+        merged["open_interest"].mean(),
+    )
+    return merged
+
+
+def _augment_with_basis(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fetch BTC perpetual futures OHLCV and compute basis spread columns
+    aligned to the spot 1h OHLCV index.
+
+    Adds: perp_close, basis (absolute), basis_pct (percentage of spot).
+    """
+    log.info("Fetching BTC/USDT:USDT perp OHLCV for Track G basis computation…")
+    perp = fetch_perp_ohlcv("BTC/USDT:USDT", timeframe="1h", days=730)
+    perp_close = perp[["close"]].rename(columns={"close": "perp_close"})
+
+    merged = df.join(perp_close, how="left")
+    merged["perp_close"] = merged["perp_close"].ffill()
+
+    n_missing = merged["perp_close"].isna().sum()
+    if n_missing > 0:
+        log.warning("perp_close has %d NaN rows after ffill — using spot close", n_missing)
+        merged["perp_close"] = merged["perp_close"].fillna(merged["close"])
+
+    merged["basis"] = merged["perp_close"] - merged["close"]
+    merged["basis_pct"] = merged["basis"] / merged["close"]
+
+    log.info(
+        "Basis merged: mean=%.2f  mean_pct=%.6f  range=[%.2f, %.2f]",
+        merged["basis"].mean(),
+        merged["basis_pct"].mean(),
+        merged["basis"].min(),
+        merged["basis"].max(),
+    )
+    return merged
+
+
 def _get_augment_fn(config: TrackConfig):
     """Return the df augmentation function for a given track, or None."""
     if config.track_id == "C":
         return _augment_with_eth
     if config.track_id == "D":
         return _augment_with_funding
+    if config.track_id == "F":
+        return _augment_with_oi
+    if config.track_id == "G":
+        return _augment_with_basis
     return None
 
 

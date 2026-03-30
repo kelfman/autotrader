@@ -1,0 +1,33 @@
+{
+  "track_id": "G",
+  "signal_class": "basis_spread",
+  "description": "Perpetual-spot basis spread as speculative demand signal",
+  "allowed_libraries": ["numpy", "pandas"],
+  "df_columns_extra": ["perp_close", "basis", "basis_pct"],
+  "signal_class_brief": "\n\nThe basis spread is the price difference between perpetual futures and the spot market: basis = perp_close - spot_close. When positive, traders are paying a premium for leveraged long exposure (contango/speculative demand). When negative, there is hedging pressure or distress (backwardation).\n\nUnlike funding rates (which are a lagging 8h average), basis is continuous and reflects real-time supply/demand for leverage. The two are related — persistent positive basis drives positive funding — but basis reacts faster and captures intrabar dynamics that funding misses.\n\nExtreme positive basis: the market is paying heavily for leverage. Arb desks step in (buy spot, sell perp) to capture the spread, creating structural selling pressure on perps and buying pressure on spot. This mean-reverts.\n\nExtreme negative basis: distress or heavy hedging. Arb desks do the reverse (sell spot, buy perp), creating structural support. Also mean-reverts.\n\nThe mechanism is strongly reducible: the arb pressure exists because of the price difference itself, not because of participant beliefs about charts. As long as the spot and perp markets are connected, extreme basis will attract arb capital that pushes prices back together.\n\nIn the df: `basis` is the absolute difference (perp_close - close) in USD, `basis_pct` is basis/close (typically ±0.001 = ±0.1%). `perp_close` is the raw perpetual futures close price.",
+
+  "reducibility_note": "Strong reducibility. Basis spread creates direct arb opportunities — the price difference itself is the mechanism. Arb desks profit from basis convergence regardless of any chart pattern. This is among the most structurally sound signals available.",
+
+  "exploration_hints": [
+    "Basis percentile rank: `basis_pct.rolling(720).rank(pct=True)` — extreme basis (>0.9 or <0.1) signals crowded leverage or distress.",
+    "Basis z-score: `(basis_pct - basis_pct.rolling(N).mean()) / basis_pct.rolling(N).std()` — normalize for regime shifts in typical basis level.",
+    "Basis as contrarian entry: enter long when basis_pct is in the bottom decile (negative/low basis = distress, expect reversion). Exit when basis reaches top decile.",
+    "Basis momentum: `basis_pct.diff(24)` — rising basis = increasing speculative demand. Falling basis = demand cooling.",
+    "Basis-funding divergence: basis widening but funding still flat = recent speculative surge not yet priced into funding. Early signal.",
+    "Annualized carry: `basis_pct * 365 * 24 / 8` (annualized from 8h funding interval equivalent). Positive carry > 30% annually = extreme.",
+    "Basis regime: basis consistently positive (mean over 30 days > 0) = bull regime. Basis consistently negative = bear regime. Use as a regime filter rather than entry signal."
+  ],
+
+  "ta_baseline_fitness": 0.4714,
+
+  "primary_signal_requirement": "Your PRIMARY entry/exit logic MUST derive from the basis or basis_pct columns (raw value, z-score, percentile rank, rate of change, or divergence). A simple trend filter (close > SMA) may be a secondary gate, but basis dynamics must be the core decision variable.",
+  "forbidden_entry_patterns": [
+    "EMA or SMA crossover as the primary entry logic",
+    "Any entry condition that would be identical if the basis and basis_pct columns were removed",
+    "Price momentum as the sole entry with basis as a trivial boolean gate"
+  ],
+  "max_params": 10,
+  "exploration_phase_iterations": 5,
+  "exploration_phase_instructions": "Iteration 1: Pure basis signal. Enter when basis_pct percentile rank (30-day rolling) drops below 0.2 (low/negative basis = distress, expect reversion upward). Exit when basis_pct percentile > 0.8 (crowded speculative demand). No price filters. Iteration 2: Basis z-score variant — enter when z-score < -1.5, exit when > 1.0. Iteration 3: Basis rate of change — enter when basis_pct is falling rapidly (cooling demand = buying opportunity) AND basis level is not extreme negative. Iteration 4: Basis regime classification — long only when 30-day mean basis_pct > 0 (bull carry regime). Iteration 5: Add one trend filter to the best variant.",
+  "review_interval": 5
+}

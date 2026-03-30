@@ -92,9 +92,21 @@ def suggest_d_a_b_c(trial: optuna.Trial) -> dict:
     return params
 
 
+def suggest_basis(trial: optuna.Trial) -> dict:
+    """Track G basis spread search space."""
+    return {
+        "sma_period":     trial.suggest_int("sma_period", 96, 384, step=8),
+        "z_window":       trial.suggest_int("z_window", 168, 1440, step=24),
+        "z_entry":        trial.suggest_float("z_entry", -2.5, -0.3),
+        "z_exit":         trial.suggest_float("z_exit", 0.5, 2.5),
+        "exit_lookback":  trial.suggest_int("exit_lookback", 20, 72),
+    }
+
+
 PRESETS: dict[str, Callable] = {
     "d_a": suggest_d_a,
     "d_a_b_c": suggest_d_a_b_c,
+    "basis": suggest_basis,
 }
 
 
@@ -115,6 +127,7 @@ def load_data(
     days: int = 730,
     augment_funding: bool = False,
     augment_eth: bool = False,
+    augment_basis: bool = False,
 ) -> pd.DataFrame:
     """Load and augment OHLCV data once for all trials."""
     df = fetch_ohlcv(symbol, "1h", days=days)
@@ -130,6 +143,15 @@ def load_data(
         df = df.join(eth, how="left")
         for col in eth.columns:
             df[col] = df[col].ffill()
+
+    if augment_basis:
+        from data import fetch_perp_ohlcv
+        perp = fetch_perp_ohlcv("BTC/USDT:USDT", timeframe="1h", days=days)
+        perp_close = perp[["close"]].rename(columns={"close": "perp_close"})
+        df = df.join(perp_close, how="left")
+        df["perp_close"] = df["perp_close"].ffill().fillna(df["close"])
+        df["basis"] = df["perp_close"] - df["close"]
+        df["basis_pct"] = df["basis"] / df["close"]
 
     return df
 
@@ -546,6 +568,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Merge funding rate data (required for D+A)")
     p.add_argument("--augment-eth", action="store_true",
                    help="Merge ETH/USDT data (required for Stage 2 ratio filter)")
+    p.add_argument("--augment-basis", action="store_true",
+                   help="Merge perp-spot basis data (required for Track G)")
     p.add_argument("--resume", action="store_true",
                    help="Resume an existing study from SQLite storage")
     p.add_argument("--stability-check", action="store_true",
@@ -661,6 +685,7 @@ def main() -> None:
         symbol=args.symbol,
         augment_funding=args.augment_funding,
         augment_eth=args.augment_eth,
+        augment_basis=getattr(args, "augment_basis", False),
     )
     print(
         f"Data loaded: {len(df)} bars "

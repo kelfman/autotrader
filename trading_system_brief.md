@@ -117,14 +117,16 @@ Before speccing V2, it is useful to characterise the signal classes the system w
 
 **The reducibility test:** a signal passes if its mechanism does not depend on other participants believing in it. This distinguishes durable structural effects from fragile reflexive ones.
 
-| Signal class | Data needed | Mechanism | Reducible? |
-|---|---|---|---|
-| Funding rates | Perp funding history (ccxt) | Extreme funding = crowded positioning; arb pressure causes reversion | ✓ Strong |
-| Vol regime / clustering | OHLCV only | Realized vol is autocorrelated (GARCH-like) — a mathematical property of returns | ✓ Strong |
-| Calendar / session effects | OHLCV datetime index | Different participant pools trade at different times — Asia vs US sessions, weekend retail | ✓ Moderate |
-| Cross-pair signals | BTC + ETH OHLCV | BTC and ETH are cointegrated; ratio deviations have genuine reversion pressure from arb | ✓ Moderate |
-| Volume microstructure | OHLCV volume | Abnormal volume reflects information asymmetry — informed participants trade larger before moves | ✓ Moderate |
-| TA indicators | OHLCV only | Reflexive — works when participants collectively watch the same chart | ✗ Fragile |
+| Signal class | Data needed | Mechanism | Reducible? | V2 Status |
+|---|---|---|---|---|
+| Funding rates | Perp funding history (ccxt) | Extreme funding = crowded positioning; arb pressure causes reversion | ✓ Strong | **Track D: +1.064** |
+| Open interest | Perp OI history (ccxt) | OI changes reveal positioning flow; leverage creates liquidation pressure | ✓ Strong | Track F: blocked (API limit) |
+| Basis spread | Perp + spot OHLCV (ccxt) | Perp-spot premium reflects speculative demand; arb pressure causes reversion | ✓ Strong | Track G: +0.281 (sparse) |
+| Vol regime / clustering | OHLCV only | Realized vol is autocorrelated (GARCH-like) — a mathematical property of returns | ✓ Strong | Track A: +0.311 |
+| Calendar / session effects | OHLCV datetime index | Different participant pools trade at different times — Asia vs US sessions, weekend retail | ✓ Moderate | Track B: +0.00 (dead) |
+| Cross-pair signals | BTC + ETH OHLCV | BTC and ETH are cointegrated; ratio deviations have genuine reversion pressure from arb | ✓ Moderate | Track C: +0.00 (dead) |
+| Volume microstructure | OHLCV volume | Abnormal volume reflects information asymmetry — informed participants trade larger before moves | ✓ Moderate | Not tested |
+| TA indicators | OHLCV only | Reflexive — works when participants collectively watch the same chart | ✗ Fragile | Track E: +0.471 (ceiling) |
 
 **On TA specifically:** TA indicators are mathematical transformations of OHLCV — they do not add information, only extract patterns. On liquid, algorithmically-traded crypto markets, reflexive edge is thin and unstable. The fitness function's variance penalty directly exposes this: strategies relying on reflexivity tend to fail in specific regimes when the relevant participant group is absent. V1's W1 weakness is consistent with this.
 
@@ -854,6 +856,109 @@ The fragility of the Stage 1 optimum (55% worst-case drop from ±10% perturbatio
 3. **No approach achieves full stability (worst drop < 20%).** This suggests the D+A strategy structure is inherently parameter-sensitive — the combinatorial interaction between vol regime gating and funding rate filtering creates sharp fitness gradients that no parameterization can fully smooth. This is a structural property of the strategy, not a limitation of the optimization method.
 
 4. **The ensemble is the recommended deployment candidate.** Fitness +1.845, OOS +1.816, 3.8% decay. The parameter sensitivity is acknowledged but manageable: the most sensitive param (`vol_exit_pct` ±10% → 40.7% drop) can be monitored. The ensemble's tight parameter spread means nearby configurations also perform well — it's sitting in the broadest available basin.
+
+### 5.16 Derivative-Signal Tracks (Next)
+
+The funding rate signal validated the reducibility thesis: derivatives microstructure signals have structural mechanisms independent of chart-watching behaviour. The natural next step is to explore the rest of the derivatives signal family — signals available from the same exchange APIs that share the same mechanistic basis.
+
+#### 5.16.1 Rationale
+
+V2 produced one strong signal class (funding rates, Track D) and one weak but genuine structural signal (vol regime, Track A). Calendar (B) and cross-pair (C) are dead. The D+A synthesis achieves project-best OOS fitness (+1.816) but the remaining fragility (40.7%) is structural — further improvement requires new independent signal classes, not better optimization of existing ones.
+
+Open interest and basis spread are the two highest-value candidates:
+- Both are available via ccxt on Binance futures
+- Both have clear, reducible mechanisms in the same family as funding rates
+- Both can be integrated with the existing pipeline (numeric column, forward-fill to 1h, merge to df)
+- Both can be tested independently first, then as marginal additions to the D+A synthesis
+
+#### 5.16.2 Track F — Open Interest
+
+**Signal class:** Changes in aggregate open interest on BTC/USDT perpetual futures.
+
+**Mechanism:** Open interest (OI) measures total outstanding derivative contracts. Rising OI with rising price means new longs are entering — the market is getting more crowded and leveraged. Rising OI with falling price means new shorts are building. Falling OI means positions are being closed (deleveraging). The mechanism is structural: leverage creates liquidation risk regardless of whether participants are watching charts.
+
+**Key signals to explore:**
+- OI rate of change (momentum of positioning, not price)
+- OI vs price divergence (price rising but OI falling = short covering, healthier rally)
+- OI percentile rank (similar to funding rate percentile — extreme OI = crowded)
+- OI acceleration (second derivative — are positions building faster or slower?)
+
+**Data pipeline:** ccxt's `fetchOpenInterest()` returns current OI; historical OI requires `fetchOpenInterestHistory()` on exchanges that support it (Binance does, as hourly snapshots). Forward-fill to 1h resolution. Add as `open_interest` column.
+
+**Track config:** 20 iterations with oversight layer. Primary signal must derive from OI dynamics. Forbidden: using OI as a trivial boolean gate on a momentum entry.
+
+#### 5.16.3 Track G — Basis Spread
+
+**Signal class:** The price difference between perpetual futures and spot markets (the "basis").
+
+**Mechanism:** When perps trade at a premium to spot (positive basis), the market is paying to hold leveraged long exposure — a measure of speculative demand. When perps trade at a discount (negative basis), there's distress or hedging demand. Unlike funding rates (which are a lagging 8h average), basis is continuous and reflects real-time supply/demand for leverage. The arb mechanism is structural: when basis is extreme, arb desks step in to capture the spread, creating mean-reversion pressure.
+
+**Key signals to explore:**
+- Basis percentile rank (extreme basis = crowded leverage, expect reversion)
+- Basis rate of change (basis expanding = growing speculative demand)
+- Basis vs funding divergence (basis widening but funding flat = recent speculative surge not yet priced into funding)
+- Annualized basis as a carry signal (positive carry = structural upward pressure)
+
+**Data pipeline:** Compute `basis = perp_close - spot_close` from the two price feeds. Perp price comes from the futures OHLCV (ccxt with `defaultType: 'future'`). Spot price is the existing BTC/USDT OHLCV. Both are hourly, so alignment is straightforward. Add as `basis` and optionally `basis_pct` (basis / spot_close) columns.
+
+**Track config:** 20 iterations with oversight layer. Primary signal must derive from basis dynamics. Forbidden: using basis as a trivial gate on a momentum or funding-rate entry.
+
+#### 5.16.4 Build Sequence
+
+1. ✅ **Add `fetch_open_interest_history()` to `data.py`** — Raw Binance `fapiData/openInterestHist` endpoint (ccxt wrapper has parameter-mapping bug). Parquet cache.
+2. ✅ **Add `fetch_perp_ohlcv()` to `data.py`** — BTC/USDT:USDT perpetual futures OHLCV via ccxt futures exchange. Full 730-day coverage.
+3. ✅ **Add augmentation functions to `track_runner.py`** — `_augment_with_oi()` and `_augment_with_basis()`.
+4. ✅ **Create track configs** — `tracks/track_f_open_interest.json` and `tracks/track_g_basis.json`.
+5. ❌ **Track F (open interest)** — **Blocked.** Binance's `openInterestHist` API is hard-capped at ~30 days of history regardless of period. Not enough for 730-day backtests. Needs a paid data source (CoinGlass, Glassnode) or exchange with longer OI history.
+6. ✅ **Track G (basis spread)** — 100 Optuna trials + 4 structural variants tested manually. See §5.16.5 for results.
+7. ✅ **Evaluate results** — Basis signal below viability threshold. See §5.16.5.
+8. ✅ **Update docs** — This section.
+
+#### 5.16.5 Track G Results (March 2026)
+
+**Data:** 17,517 hourly bars of perp-spot basis (mean basis_pct = −0.034%, range ±0.3%).
+
+**Structural exploration (4 variants, manual):**
+
+| Variant | Logic | Fitness | W+ / W− |
+|---------|-------|---------|---------|
+| Contrarian percentile (pct < 0.40) | Enter low basis | −2.19 | 1/4 |
+| Momentum (pct > 0.70) | Enter high basis | −1.71 | 1/4 |
+| Z-score < −1.0 | Enter extreme negative | −0.88 | 2/3 |
+| Regime (30d mean > 0) | Bull carry filter | −1.06 | 1/4 |
+
+The z-score variant (V2) was the best structural approach, with positive W1/W2 but catastrophic W3 (bear market generates constant false entries when basis stays negative).
+
+**Optuna optimization (100 trials):**
+
+Best fitness: **+0.281** (sma_period=336, z_window=1440, z_entry=−2.44, z_exit=+1.51)
+
+| Window | Sharpe | Trades | Status |
+|--------|--------|--------|--------|
+| W1 | 0.000 | 0 | No trades |
+| W2 | 0.000 | 0 | No trades |
+| W3 | +1.476 | 3 | Sparse |
+| W4 | 0.000 | 0 | No trades |
+| W5 | +2.464 | 5 | Sparse |
+
+The optimizer achieved +0.281 by setting z_entry=−2.44 — so extreme that the strategy only triggers in 2 of 5 windows (8 total trades). This is the same degenerate-optimization pattern seen in Track C. The walk-forward OOS (+0.616) is misleading: it comes from 5 trades in a single window.
+
+**Stability:** Extremely fragile (106% worst drop). z_exit ±10% destroys fitness entirely.
+
+**Assessment:** Basis spread is not a viable standalone signal class on this data. The mechanism is real (arb pressure from extreme basis), but on BTC/USDT 1h candles, the basis is too small (±0.3%) and too transient for the entry signal to produce consistent trades across diverse market regimes. The signal may work on lower timeframes (where basis micro-movements are larger relative to fees) or in a live context (where real-time basis captures intrabar dynamics that hourly closes miss).
+
+**Comparison to other tracks:**
+
+| Track | Signal Class | Best Fitness | Trade Quality |
+|-------|-------------|-------------|---------------|
+| D (funding) | Funding rate | **+1.064** | 6–13 trades/window, all windows positive |
+| A (vol regime) | GK vol | +0.311 | 0–4 trades/window, sparse |
+| E (TA baseline) | EMA crossover | +0.471 | 3–7 trades/window, W1 negative |
+| G (basis) | Perp-spot basis | +0.281 | 0–5 trades/window, 3 windows empty |
+| B (calendar) | Session effects | +0.00 | Dead |
+| C (cross-pair) | BTC/ETH ratio | +0.00 | Dead |
+
+Track G joins Track A as a weak-but-genuine signal: it captures something real (extreme basis does predict short-term reversion) but can't produce consistent trades across regimes. Funding rate remains the only strong standalone signal class found in V2.
 
 ---
 

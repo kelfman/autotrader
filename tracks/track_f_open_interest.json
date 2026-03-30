@@ -1,0 +1,33 @@
+{
+  "track_id": "F",
+  "signal_class": "open_interest",
+  "description": "Open interest dynamics as positioning flow signal",
+  "allowed_libraries": ["numpy", "pandas"],
+  "df_columns_extra": ["open_interest"],
+  "signal_class_brief": "\n\nOpen interest (OI) measures the total outstanding derivative contracts on BTC/USDT perpetual futures. Unlike volume (which measures turnover), OI tracks net positioning — whether new contracts are being created or old ones closed.\n\nRising OI with rising price: new longs entering, market getting more leveraged and crowded. This is structurally fragile — cascading liquidations become more likely.\n\nRising OI with falling price: new shorts building. Bearish positioning that creates short squeeze risk if price reverses.\n\nFalling OI with price movement: positions being closed (deleveraging). This is often the healthiest type of move — less leverage means less liquidation risk.\n\nThe mechanism is strongly reducible: leverage creates real liquidation pressure independent of chart-watching behaviour. When OI is extreme, the market is structurally fragile regardless of what any indicator says.\n\nIn the df, the `open_interest` column contains hourly OI snapshots in quote currency (USD). Typical values are in the billions. The raw level is less meaningful than the rate of change and percentile rank — OI trends upward structurally over time as the market grows.",
+
+  "reducibility_note": "Strong reducibility. Leverage is a structural property — high OI means high aggregate leverage, which creates liquidation cascades regardless of participant beliefs. OI dynamics capture positioning flow that is invisible in price data alone.",
+
+  "exploration_hints": [
+    "OI rate of change: `oi_roc = open_interest.pct_change(N)` where N=24 (daily) or N=168 (weekly). Rising OI = increasing leverage.",
+    "OI percentile rank: `oi_pct = open_interest.rolling(720).rank(pct=True)` — extreme OI (>0.9) signals crowded positioning.",
+    "OI-price divergence: price rising but OI falling = short covering (healthier rally). `div = close.pct_change(24) - oi_roc`.",
+    "OI acceleration: `oi_accel = oi_roc.diff(24)` — second derivative. Positive acceleration = positioning building faster.",
+    "OI detrend: since OI grows structurally, use rolling z-score: `(oi - oi.rolling(N).mean()) / oi.rolling(N).std()`.",
+    "OI as exit signal: enter on momentum, exit when OI percentile > 0.9 (market too leveraged for the move to continue).",
+    "OI deleveraging entry: enter long when OI drops sharply (pct_change(24) < -0.05) AND price holds — the flush is over, remaining positions are stronger."
+  ],
+
+  "ta_baseline_fitness": 0.4714,
+
+  "primary_signal_requirement": "Your PRIMARY entry/exit logic MUST derive from the open_interest column (rate of change, percentile rank, z-score, or divergence with price). A simple trend filter (close > SMA) may be a secondary gate, but OI dynamics must be the core decision variable.",
+  "forbidden_entry_patterns": [
+    "EMA or SMA crossover as the primary entry logic",
+    "Any entry condition that would be identical if the open_interest column were removed",
+    "Price z-score or momentum as the sole entry with OI as a trivial boolean gate"
+  ],
+  "max_params": 10,
+  "exploration_phase_iterations": 5,
+  "exploration_phase_instructions": "Iteration 1: Pure OI signal. Enter when OI percentile rank (30-day rolling) drops below 0.3 (deleveraged), exit when above 0.8 (crowded). No price filters. Iteration 2: OI rate of change — enter when oi_roc(24h) < -0.03 (sharp deleveraging), exit when oi_roc(24h) > 0.05 (rapid leverage build). Iteration 3: OI-price divergence — enter when price is rising but OI is falling (healthy rally). Iteration 4: OI acceleration as entry timing. Iteration 5: Add one trend filter to the best variant.",
+  "review_interval": 5
+}
