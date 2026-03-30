@@ -535,8 +535,11 @@ def augment_with_timeframes(df: pd.DataFrame) -> pd.DataFrame:
       - momentum: close / close.shift(1) - 1  (single-bar return at that TF)
       - range_pct: (high - low) / close  (bar range as fraction of price)
 
-    All lower-frequency columns are forward-filled to align with the 1h index,
-    so the strategy only sees information available at each 1h bar.
+    Look-ahead prevention: all features are shifted by 1 period at their native
+    timeframe before forward-filling. This means at any 1h bar, the strategy
+    only sees the *previous completed* 4h or daily bar — never the current one.
+    In live trading, you know yesterday's daily close at today's open; this
+    replicates that constraint exactly.
     """
     import numpy as np
 
@@ -572,6 +575,10 @@ def augment_with_timeframes(df: pd.DataFrame) -> pd.DataFrame:
 
         features[f"{prefix}_momentum"] = close_tf.pct_change()
         features[f"{prefix}_range_pct"] = (high_tf - low_tf) / close_tf
+
+        # Shift by 1 period at native TF to prevent look-ahead: at any 1h bar,
+        # the strategy sees only the previous completed 4h/daily bar.
+        features = features.shift(1)
 
         df = df.join(features, how="left")
         for col in features.columns:

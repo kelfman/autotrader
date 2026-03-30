@@ -1485,17 +1485,67 @@ Every year positive on ETH. The strategy made **+101.6% during the 2022 crash** 
 
 4. **A two-asset portfolio would diversify risk.** Running the strategy on both BTC and ETH with equal allocation would likely smooth drawdowns — the negative ETH windows don't overlap with negative BTC windows.
 
-#### 6.8.8 Implications for Phase 2
+#### 6.8.8 Robustness Audit — Look-Ahead Fix (March 2026)
 
-1. **The MTF ensemble is the new base strategy.** All subsequent V3 phases should build on `runs/v3_mtf/strategy.py`, not the V2 D+A ensemble. The 5-year validation confirms the strategy is not overfit to 2024–2026.
+A post-hoc audit identified a **look-ahead bias** in `augment_with_timeframes()`: the daily close (`d1_close`) was computed using all bars in the current day, including the bar at which the strategy could trade. In live trading, you only know *yesterday's* completed daily close at today's open. The strategy's `d1_close > d1_sma` comparison was partially tautological — on bullish days, today's close naturally exceeds the 20-day average, creating a signal correlated with the present rather than predictive of the future.
 
-2. **Position sizing is not needed in current form.** The binary vol gate outperforms continuous sizing. Revisit if regime switching (§6.5.3) needs finer-grained position control — e.g., regime-specific position sizes rather than signal-derived continuous modulation.
+**Fix:** All MTF features are now shifted by 1 period at their native timeframe before forward-filling. At any 1h bar, the strategy only sees the previous completed 4h or daily bar.
 
-3. **Stability remains the main concern.** Even the best MTF result has 34–36% worst-case drop from ±10% parameter perturbation. Phase 2 regime switching should help — if the strategy adapts its behaviour to conditions rather than relying on one parameter set, sensitivity to individual parameters decreases.
+**Additionally:** 5bp slippage per side was added to the backtest (total cost: 0.15% per side, 0.30% round-trip).
 
-4. **Trade sparsity in transition periods.** The 5-year test reveals sparse trading during regime transitions (1 trade in Nov 2021 – Feb 2022). The strategy correctly goes flat when the daily SMA turns, but this creates windows with insufficient data for evaluation. Phase 2 should consider whether a secondary entry mechanism can find opportunities during flat periods without compromising the trend filter.
+**Re-evaluation results (BTC, 5 years, 9 windows):**
 
-5. **The 5-year backtest confirms the structural thesis.** The daily SMA(20) + funding rate percentile combination works across structurally different market regimes (retail-dominated 2021–2023, institutional 2024–2026) without parameter adjustment. This is the strongest evidence yet that the funding rate signal and daily trend filter capture genuine structural properties of the market.
+| Metric | Before fix | After fix | Change |
+|--------|:----------:|:---------:|:------:|
+| 9-window fitness | +1.187 | **−0.951** | Collapsed |
+| 5yr return | +1,221% | **−32.1%** | Collapsed |
+| Sharpe | 2.209 | **−0.216** | Collapsed |
+| Positive windows | 9/9 | **2/9** | Collapsed |
+
+**Per-year (BTC, after fix):**
+
+| Year | Strategy | BTC |
+|------|----------|-----|
+| 2021 | −23.3% | −22.0% |
+| 2022 | −3.8% | −64.5% |
+| 2023 | −10.0% | +155.8% |
+| 2024 | +8.9% | +120.3% |
+| 2025 | −5.4% | −7.2% |
+| 2026 | −0.9% | −24.0% |
+
+ETH results similarly collapsed (5yr return −9.0%, Sharpe +0.093).
+
+**Diagnosis:** The V3 MTF "breakthrough" was almost entirely driven by look-ahead bias in the daily close. The `d1_sma_period=20` finding — which appeared to be the project's strongest structural insight — was an artefact of same-day information leakage.
+
+**What remains valid:**
+
+1. **The V2 D+A ensemble (+1.845 fitness) is NOT affected.** Its 1h SMA(266) is computed on hourly closes that are available at signal time. No look-ahead.
+2. **The position sizing contract extension** (3-tuple returns from `compute_signals`) is a valid infrastructure improvement regardless.
+3. **The multi-timeframe augmentation infrastructure** (`augment_with_timeframes`) is now correctly lagged and available for future use.
+
+**What must be discarded:**
+
+1. All V3 MTF fitness numbers, walk-forward results, and 5-year validation reported in §6.8.3–§6.8.7 were computed with look-ahead and are invalid.
+2. The "daily SMA(20) as a breakthrough" finding is an artefact.
+3. The ETH cross-asset validation was also computed with look-ahead and is invalid.
+
+**Lessons:**
+
+1. Multi-timeframe features require explicit lag to prevent look-ahead. Any feature computed at a lower frequency than the trading timeframe must be shifted by 1 period at its native frequency before forward-filling.
+2. Extraordinary results demand adversarial auditing. The +3.082 fitness (67% above V2) and negative walk-forward decay should have triggered immediate suspicion.
+3. The walk-forward validation did not catch this because the look-ahead existed in both training and test windows — it inflated both equally.
+
+**Current project best (valid): V2 D+A ensemble, fitness +1.845, OOS +1.816.**
+
+#### 6.8.9 Implications for Phase 2
+
+1. **The V2 D+A ensemble remains the project's best strategy.** `runs/synthesis_D_A/strategy.py` with fitness +1.845 and OOS +1.816 is the valid base for Phase 2.
+
+2. **Multi-timeframe augmentation still has potential, but requires correctly lagged features.** The infrastructure is now fixed (shift by 1 period). A new Optuna study using the lagged features should be run to determine if daily/4h information adds genuine value when properly lagged. The optimal parameters will likely differ significantly from the look-ahead-contaminated ones.
+
+3. **Position sizing does not improve the D+A synthesis.** This finding (§6.8.2) was computed on 1h features and is unaffected by the MTF look-ahead issue.
+
+4. **Adversarial auditing should be standard practice.** Any future result that exceeds the V2 baseline by more than 30% should be immediately tested with: (a) feature lag verification, (b) slippage sensitivity, (c) parameter perturbation. The walk-forward test alone is insufficient — it doesn't catch look-ahead that exists in both train and test.
 
 ---
 

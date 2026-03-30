@@ -405,8 +405,8 @@ relative to hourly volatility). May work on lower timeframes or in real-time.
    - Position sizing (§6.5.2) did not improve over V2 — binary vol gate outperforms continuous sizing
    - Full 2-year backtest: +207.4% return, Sharpe 2.763, max DD 9.5%, DD duration 55 days (vs V2: +14.3%, 0.467, 21.8%, 423 days)
    - Key insight: daily SMA(20) trend filter replaces 1h SMA(266), providing dramatically cleaner trend identification
-7. ✅ **5-year extended validation** — V3 MTF ensemble tested on 5 years (Apr 2021 – Mar 2026). All 9 windows positive including 2022 bear crash (+8.7% while BTC −64.5%). Full 5yr: +1,221% return, Sharpe 2.209, max DD 16.7%, every year positive. Strategy not overfit to training period.
-8. **Next: V3 Phase 2** — Regime switching (§6.5.3) + Strategy portfolio (§6.5.4), building on the MTF base strategy
+7. ❌ **V3 MTF results INVALIDATED** — Post-hoc audit found look-ahead bias in `augment_with_timeframes()`: daily close included same-day bars. After fixing (shift d1/h4 features by 1 period) + adding 5bp slippage, BTC 5yr collapses to −32.1% (Sharpe −0.22). The "daily SMA(20) breakthrough" was an artefact of same-day information leakage. V2 D+A ensemble (+1.845) remains the valid project best.
+8. **Next: V3 Phase 2** — Retry MTF with correctly lagged features (new Optuna study needed). Regime switching (§6.5.3) + Strategy portfolio (§6.5.4) building on V2 D+A base.
 
 **Unexplored TA ideas (low priority — V1 is at ceiling):**
 
