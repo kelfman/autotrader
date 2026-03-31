@@ -1584,28 +1584,62 @@ The V2 D+A continuous 2-year backtest with 5bp slippage: **+2.9%** return (Sharp
 
 **Proposed direction: embrace reflexivity.**
 
-V1–V3 followed the principle "reducibility over reflexivity" — prefer signals that work regardless of what other participants believe. This produced a single thin signal (funding rates, ~30bp/trade). The next phase inverts this thesis: instead of avoiding signals that depend on crowd behaviour, treat crowd behaviour as the primary signal.
+#### The thesis
 
-The argument: reflexive signals may carry *thicker* edge because modelling human psychology is harder than computing a percentile rank. Structural signals are efficiently priced by quant desks. Sentiment extremes, round-number psychology, and attention spikes are messier, less systematised, and potentially less competed.
+Cryptocurrencies have no fundamental value — no earnings, no cash flows, no book value. Price is purely a function of what participants collectively believe and how they act. Every signal in the market, including "structural" ones like funding rates, is ultimately a signal about other people. The reducibility thesis produced thin edge because structural signals are systematically computable and efficiently priced by quant desks. Reflexive signals — crowd psychology, sentiment extremes, positioning cascades — may carry thicker edge because modelling human behaviour is harder to systematise and less competed.
 
-**Candidate signal classes (sociology-centric):**
+V1–V3 asked: "what mathematical property of returns can we exploit?" The next phase asks: "which aspects of collective participant behaviour are most predictable?"
 
-| Signal | Data source | Mechanism | Frequency |
-|--------|------------|-----------|-----------|
-| Sentiment extremes | Fear & Greed Index (alternative.me, free, daily, back to 2018) | Extreme fear = selling exhausted, contrarian entry. Extreme greed = crowded longs, exit. | ~10–20 signals/year |
-| Round-number clustering | OHLCV (existing) | Stop-losses and limit orders cluster at $50k, $60k, $100k. Price bounces or cascades through these levels predictably. | Event-driven |
-| Liquidation cascade | Funding rate + price range (existing) | High leverage + price approaching liquidation bands → forced selling → reversion. | Event-driven |
-| Volume-attention spikes | OHLCV volume (existing) | Abnormal volume = sudden attention. Crowd overreacts → mean-reversion opportunity. | ~30–50/year |
-| TA level confluence | OHLCV (existing) | When RSI oversold + near 200-MA + round number, many participants see the same "buy" setup. The crowd's coordinated action IS the signal. | ~20–40/year |
-| Long/short ratio | Binance API (free) | Extreme long/short imbalance = crowded positioning → mean-reversion pressure. | Continuous |
+#### The participant-group model
 
-**Why this might solve the transaction cost problem:**
+Crypto markets are not one homogeneous crowd. They are overlapping groups with different information, time horizons, and psychological profiles:
 
-The current strategy makes ~100 trades/year of ~30bp edge. A sociology-centric approach would make ~10–30 trades/year of larger edge (sentiment extremes produce 2–5% moves). Fewer trades = less friction drag. And the strategy structure shifts from trend-following momentum (which trades frequently) to contrarian mean-reversion (which waits for extremes).
+- **Leverage degens** (perp traders, 10–50x) — create funding rate extremes and liquidation cascades. Their behaviour is mechanically predictable once margin is breached.
+- **Retail** (spot + low-leverage) — driven by sentiment, social media, FOMO/panic. Arrive late in runs, sell late in crashes. Measurable via Fear & Greed Index, Google Trends, social volume.
+- **ETF/institutional allocators** — rebalance on fixed schedules (monthly, quarterly). Create predictable flow patterns at calendar intervals.
+- **Miners** — hedge production, sell on rallies. Create structural selling pressure during bull runs.
+- **Arbitrage desks** — enforce price convergence across venues. Their activity shows up as funding rate mean-reversion and basis compression.
 
-**Key design change:** The new strategy would be fundamentally contrarian — buy fear, sell greed — rather than momentum-following. This is a philosophical inversion from V1–V3 which were all momentum-based (close > SMA, funding not crowded = trend intact).
+A run happens when these groups pile in sequentially: smart money → degens → retail → allocators → media-driven latecomers. The run ends when the last group is in and there's nobody left to buy. A strategy that models *which group is driving price right now* and *when they'll exhaust themselves* captures runs with better timing than a moving average.
 
-**Starting point:** Fear & Greed Index as a contrarian entry filter. It's the simplest test: daily data, long history (2018+), no new infrastructure beyond a single API call. If sentiment extremes produce trades with >100bp edge on 5-year data with slippage, the thesis is validated and worth expanding to other sociological signals.
+#### The edge is in transitions
+
+The V2 strategy identified regimes (calm vol, low funding) and traded within them. But the actual money is in the *transitions* — the moment fear tips into capitulation, the moment leveraged positions cascade, the moment FOMO ignition starts. These are nonlinear events where crowd behaviour is temporarily highly predictable: once a cascade starts, it follows a mechanical sequence (breach → liquidation → forced selling → overshoot → reversion).
+
+The macro strategy structure is **washout → compression → ignition**:
+
+1. **Washout** — leverage is cleaned out (funding low/negative, sentiment depressed). The degens got liquidated and retail has given up. Measurable via: funding rate level, Fear & Greed Index, volume decline.
+2. **Compression** — price stabilises, vol compresses. Selling pressure is exhausted but new buying hasn't started. Measurable via: vol percentile dropping, range contraction, funding near neutral.
+3. **Ignition** — new buying enters the vacuum. Price breaks out of compression. The sequential pile-in begins. Measurable via: volume spike on breakout, funding turning positive, Fear & Greed rising from low base.
+
+Entry at ignition (after confirming washout + compression). Exit when the participant structure signals exhaustion: funding extreme (degens fully loaded), sentiment at greed (retail back), volume without follow-through (late buyers absorbed by early sellers). Hold for days to weeks.
+
+#### Target trade profile
+
+| Attribute | V2 D+A (current) | V4 Sociology (target) |
+|-----------|:-:|:-:|
+| Trades per year | ~100 | ~10–20 |
+| Hold period | Hours | Days to weeks |
+| Edge per trade | ~30bp | 200–500bp |
+| Annual friction (5bp slip) | ~3% | ~0.3% |
+| Strategy type | Momentum (trend-following) | Contrarian → momentum (buy washout, ride run) |
+| Entry signal | Price > SMA | Washout + compression + ignition sequence |
+| Exit signal | Trailing low / funding high | Participant exhaustion (sentiment, funding, volume) |
+
+#### Candidate signals (macro approach)
+
+| Signal | Data source | Role in sequence | Available? |
+|--------|------------|------------------|------------|
+| Fear & Greed Index | alternative.me API (free, daily, 2018+) | Washout detection (score < 25) + exhaustion exit (score > 75) | Yes |
+| Funding rate level | Binance perp (existing) | Washout (negative funding) + exhaustion (extreme positive) | Yes |
+| Vol compression | OHLCV (existing) | Compression detection (vol percentile dropping, range tightening) | Yes |
+| Volume breakout | OHLCV (existing) | Ignition confirmation (volume spike on price move) | Yes |
+| Long/short ratio | Binance API (free) | Positioning extremes — crowded shorts at washout, crowded longs at exhaustion | To fetch |
+| Round-number proximity | OHLCV (existing) | Identifies where stop/limit clusters create predictable bounce/cascade behaviour | Yes |
+
+#### Starting point
+
+Fear & Greed Index as the primary washout/exhaustion signal, combined with existing funding rate and vol data for compression/ignition. Daily resolution. Test on 5+ years with slippage. Success criterion: >100bp edge per trade on average, with <20 trades per year. If the thesis validates, expand to the full participant-group model with additional data sources.
 
 ---
 
