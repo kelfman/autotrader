@@ -1,0 +1,16 @@
+{
+  "sma_period": 280,
+  "fr_pct_window": 936,
+  "fr_entry_pct": 0.42626427305498943,
+  "fr_exit_pct": 0.7397428875633063,
+  "exit_lookback": 50,
+  "vol_lookback": 19,
+  "vol_pct_window": 1200,
+  "vol_entry_pct": 0.7285375156397116,
+  "vol_exit_pct": 0.6007333544590844,
+  "sma_slope_lookback": 168,
+  "min_sma_slope": -0.0022079427831912463,
+  "vov_window": 288,
+  "vov_threshold": 0.2460478549283424,
+  "min_funding_raw": -0.00011431247315139451
+}

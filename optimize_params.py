@@ -150,12 +150,36 @@ def suggest_d_a_mtf(trial: optuna.Trial) -> dict:
     }
 
 
+def suggest_d_a_regime(trial: optuna.Trial) -> dict:
+    """V3 D+A with regime-switching gate (§6.5.3)."""
+    return {
+        # D+A base
+        "sma_period":       trial.suggest_int("sma_period", 96, 384, step=8),
+        "fr_pct_window":    trial.suggest_int("fr_pct_window", 360, 1440, step=24),
+        "fr_entry_pct":     trial.suggest_float("fr_entry_pct", 0.30, 0.80),
+        "fr_exit_pct":      trial.suggest_float("fr_exit_pct", 0.70, 0.95),
+        "exit_lookback":    trial.suggest_int("exit_lookback", 20, 72),
+        "vol_lookback":     trial.suggest_int("vol_lookback", 12, 72),
+        "vol_pct_window":   trial.suggest_int("vol_pct_window", 720, 2160, step=24),
+        "vol_entry_pct":    trial.suggest_float("vol_entry_pct", 0.40, 0.85),
+        "vol_exit_pct":     trial.suggest_float("vol_exit_pct", 0.55, 0.90),
+        # Regime gate
+        "use_regime_gate":    True,
+        "sma_slope_lookback": trial.suggest_int("sma_slope_lookback", 24, 168, step=24),
+        "min_sma_slope":      trial.suggest_float("min_sma_slope", -0.02, 0.05),
+        "vov_window":         trial.suggest_int("vov_window", 72, 336, step=24),
+        "vov_threshold":      trial.suggest_float("vov_threshold", 0.05, 0.30),
+        "min_funding_raw":    trial.suggest_float("min_funding_raw", -0.0002, 0.0003),
+    }
+
+
 PRESETS: dict[str, Callable] = {
     "d_a": suggest_d_a,
     "d_a_b_c": suggest_d_a_b_c,
     "basis": suggest_basis,
     "d_a_sized": suggest_d_a_sized,
     "d_a_mtf": suggest_d_a_mtf,
+    "d_a_regime": suggest_d_a_regime,
 }
 
 

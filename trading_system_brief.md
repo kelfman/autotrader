@@ -1547,15 +1547,40 @@ The optimizer moved `d1_sma_period` from 20 (look-ahead contaminated) to 110 (la
 
 **Conclusion:** The daily trend filter does not add value when properly lagged. The multi-timeframe augmentation infrastructure is sound (shift by 1 period), but the signal class doesn't produce an edge at this timeframe/asset combination.
 
-#### 6.8.10 Implications for Phase 2
+#### 6.8.10 Regime Switching (March 2026)
 
-1. **The V2 D+A ensemble remains the project's best strategy.** `runs/synthesis_D_A/strategy.py` with fitness +1.640 (with 5bp slippage) is the valid base for Phase 2.
+Tested a regime quality gate (SMA slope + vol-of-vol stability + funding raw level) on the D+A base. 200 Optuna trials with 5bp slippage.
 
-2. **Multi-timeframe augmentation is a dead end for now.** The daily trend filter adds no value when properly lagged. The 4h timeframe was consistently disabled by the optimizer. Future MTF work should focus on *different* features at lower timeframes (e.g., daily vol regime, daily funding rate aggregates) rather than price-based trend filters.
+**Best fitness: +0.409** — well below V2 baseline (+1.640). The gate blocked W1 entirely (0 trades) and reduced W2/W4 to single trades. Parameter importance: `vol_pct_window` (35%) and `fr_entry_pct` (31%) dominate; the regime gate parameters contribute <10%. The optimizer prefers tightening existing filters over using the regime gate.
 
-3. **Position sizing does not improve the D+A synthesis.** This finding (§6.8.2) was computed on 1h features and is unaffected by the MTF look-ahead issue.
+#### 6.8.11 Strategy Portfolio (March 2026)
 
-4. **Adversarial auditing is now automated.** `check_signal_integrity()` runs on every backtest and flags daily return correlation > 0.15 as FAIL. The slippage default of 5bp is threaded through all evaluation paths. These guards would have caught the MTF look-ahead on the first run.
+Tested equal-weight portfolio of D+A, Track D (funding standalone), and Track E (TA baseline) over 5 years with 5bp slippage.
+
+All three strategies are individually negative over 5 years (D+A: −35.6%, Track D: −15.9%, Track E: −13.9%). Portfolio: −21.8%, Sharpe −0.237. Correlation between TA and funding strategies is near-zero (0.069), confirming genuine signal independence — but diversifying losing strategies still loses.
+
+The V2 D+A continuous 2-year backtest with 5bp slippage: **+2.9%** return (Sharpe 0.169). The slippage costs ~$1,050 on 105 trades, eating most of the $1,430 raw profit. The edge is real but thin — about 1.5% annualized.
+
+#### 6.8.12 V3 Phase 1 Summary
+
+| Intervention | Fitness | vs V2 Baseline (+1.640) | Verdict |
+|-------------|:-------:|:-:|:-:|
+| Position sizing (§6.8.2) | +1.545 | Below | Binary gate > continuous sizing |
+| MTF augmentation (§6.8.3–9) | +0.778 (lagged) | Below | Daily trend no value when lagged |
+| Regime switching (§6.8.10) | +0.409 | Below | More filtering = fewer trades = worse |
+| Strategy portfolio (§6.8.11) | N/A (−21.8% 5yr) | Below | All components negative with slippage |
+
+**None of the V3 Phase 1 interventions improve on the V2 D+A ensemble.** The binding constraint is not strategy expressiveness (what the system can do) — it's signal edge per trade (how much each trade makes relative to its cost). With 5bp slippage and ~100 trades/year, the strategy needs roughly 30bp of edge per trade to break even on friction. The current edge is approximately this threshold, leaving almost no room for structural improvements that don't also increase per-trade profitability.
+
+#### 6.8.13 Implications for Future Work
+
+1. **Transaction cost is the ceiling, not strategy structure.** Reducing slippage (maker orders, better execution) would improve results more than any strategy change.
+
+2. **Lower-frequency strategies would reduce friction drag.** Holding trades for days/weeks instead of hours would dramatically cut the number of trades, shifting the break-even from ~100 trades * 30bp to ~20 trades * 150bp — a much wider edge requirement that's easier to meet.
+
+3. **New signal classes remain the most promising direction.** OI with paid data (CoinGlass), on-chain data, or cross-exchange arbitrage signals could provide larger per-trade edge. The funding rate signal works but is thin.
+
+4. **The automated integrity guard is the lasting infrastructure win.** `check_signal_integrity()` + default 5bp slippage ensures all future results are honest from the start.
 
 ---
 
