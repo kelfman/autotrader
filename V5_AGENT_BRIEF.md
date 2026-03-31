@@ -150,7 +150,40 @@ A living document that encodes everything the agent has learned. It starts seede
 
 The playbook is NOT a fixed strategy. It evolves. After enough experience, certain patterns get promoted to "high confidence" and others get demoted or removed. This is the mechanism for learning.
 
-### 4.2 The Journal
+**Rule provenance.** Every playbook rule is tagged with where it came from and how much it's been tested:
+
+```yaml
+- pattern: "FVG fill at major support after washout"
+  source: "review:2026-W22"          # emerged from journal review
+  confidence: "70% (7/10)"           # tested against own trades
+  added: "2026-05-30"
+
+- pattern: "Liquidity grab below range, reclaim within 2 candles = long"
+  source: "document:ict_concepts"    # ingested from external material
+  confidence: "untested"             # no live validation yet
+  added: "2026-04-15"
+  notes: "Discussed with Kane — focus on HTF levels only, skip LTF grabs"
+
+- pattern: "Funding rates below -0.01% for 3+ days = washout confirmed"
+  source: "v1v4:track_d"            # inherited from V1–V4 research
+  confidence: "validated (V2 D+A)"   # backtested in prior project
+  added: "2026-04-01"
+```
+
+Three source types: `document:*` (ingested external knowledge), `review:*` (emerged from the agent's own experience), `v1v4:*` (inherited from the prior project). Document-sourced and v1v4-sourced rules start as untested hypotheses and must earn their confidence through live paper-trading results or experiments (§6.3). Review-sourced rules already have journal evidence behind them.
+
+### 4.2 Knowledge Ingestion
+
+The playbook can be seeded from external sources — trading courses, strategy write-ups, threads, your own notes. The process is collaborative, not automated:
+
+1. **Feed in the document.** The agent reads it and extracts the trading concepts — setups, rules, frameworks, risk approaches.
+2. **Discuss.** You and the agent talk through what's relevant and what isn't. "The FVG concept is solid but ignore the indicator overlay stuff." "This stop placement is too tight for crypto vol — widen it." "This is interesting but only for higher timeframes."
+3. **Distill into playbook rules.** The agent writes candidate rules in playbook format, tagged with `source: "document:<name>"` and `confidence: "untested"`. Your discussion notes are captured in the `notes` field.
+4. **Validate through experience.** Untested rules get applied during paper trading. The journal tracks outcomes. After enough trades, the rule earns a real confidence score — or gets removed if it doesn't work.
+
+This is how the agent acquires knowledge beyond its own trading experience. The V1–V4 findings are one input. External documents are another. Your own trading intuitions are a third. All enter the playbook the same way: as tagged hypotheses that must prove themselves through live results.
+
+### 4.3 The Journal
 
 A structured, append-only log of every significant decision. Each entry includes:
 
@@ -189,7 +222,7 @@ The journal serves three purposes:
 2. **Review input** — The periodic review reads the journal to identify patterns
 3. **Audit trail** — Every decision is traceable and reviewable
 
-### 4.3 Market Structure Vocabulary
+### 4.4 Market Structure Vocabulary
 
 The agent needs to understand these concepts as first-class objects, not as indicator thresholds:
 
