@@ -1641,6 +1641,63 @@ Entry at ignition (after confirming washout + compression). Exit when the partic
 
 Fear & Greed Index as the primary washout/exhaustion signal, combined with existing funding rate and vol data for compression/ignition. Daily resolution. Test on 5+ years with slippage. Success criterion: >100bp edge per trade on average, with <20 trades per year. If the thesis validates, expand to the full participant-group model with additional data sources.
 
+#### 6.8.14 V4 Sociology Results (March 2026)
+
+Implementation of the reflexivity thesis from §6.8.13. Fear & Greed Index (alternative.me, daily, 2018+) fetched and integrated into the data pipeline (`data.py:fetch_fear_greed()`). Three approaches tested:
+
+**Infrastructure additions:**
+- `data.py`: `fetch_fear_greed()` with parquet cache and `requests`-based fetcher
+- `optimize_params.py`: `--augment-fng` flag, `--days`, `--n-windows`, `--window-days` CLI args; `suggest_sociology` and `suggest_da_fng` presets
+- `runs/v4_sociology/strategy.py`: washout → compression → ignition standalone strategy
+- `runs/v4_sociology/strategy_da_fng.py`: D+A base with FNG behavioral overlay
+
+**Critical finding: FNG look-ahead.** The initial run (unlagged FNG) showed fitness +1.429. The integrity guard flagged `daily_return_corr=+0.171 [FAIL]` — the FNG value for day D incorporates that day's price action (momentum, vol inputs), creating the same class of look-ahead as the MTF episode (§6.8.8). Fixed by shifting FNG by 1 day before forward-filling. The guard caught this on the first ensemble run.
+
+**Approach 1 — FNG standalone (2yr, 5 × 91-day windows):**
+200 Optuna trials. Best fitness +0.566 (vs V2 baseline +1.640). Extremely fragile (100% worst drop). OOS +0.387 (48% decay). ~12 trades in 2 years. The 2-year window has only ~2 distinct washout events — insufficient data for a macro strategy.
+
+**Approach 2 — FNG standalone (5yr, 5 × 365-day windows):**
+200 Optuna trials. Best fitness **+0.651** over 5 years (2021–2026). Per-year:
+
+| Window | Period | Sharpe | Return | Trades | WR |
+|--------|--------|:------:|:------:|:------:|:--:|
+| W1 | Apr 2021–Apr 2022 | +1.290 | +12.6% | 3 | 67% |
+| W2 | Apr 2022–Apr 2023 | +0.604 | +6.4% | 3 | 100% |
+| W3 | Apr 2023–Apr 2024 | 0 (⚠) | 0% | 0 | — |
+| W4 | Apr 2024–Mar 2025 | +0.965 | +9.5% | 5 | 60% |
+| W5 | Mar 2025–Mar 2026 | +2.349 | +23.1% | 3 | 100% |
+
+4/5 windows positive. **14 trades in 5 years = 2.8/year** (below the 10–20 target). **Edge per trade: +370bp** (3.7× the 100bp target). W3 has 0 trades because FNG never dropped below 24 during the 2023–2024 bull recovery — correct behavior for a washout strategy, but it creates a structural 0-Sharpe window that penalizes fitness.
+
+Optimal params: `fng_washout_level=24, fng_washout_lookback=624h, fng_entry_level=29, fng_exit_level=81, sma_period=120, fr_entry_pct=0.369, vol_entry_max_pct=0.332, exit_lookback=156`.
+
+**Approach 3 — D+A+FNG synthesis (2yr):**
+200 Optuna trials. Best fitness +1.382. **The optimizer disabled both FNG features** (`use_fng_entry=false, use_fng_exit=false`). Optuna explicitly determined that FNG adds no value to the D+A base — the best synthesis is just D+A without FNG. The +1.382 is a re-parameterized D+A, not a D+A+FNG result.
+
+**Summary:**
+
+| Approach | Fitness | Edge/Trade | Trades/yr | FNG value? |
+|----------|:-------:|:----------:|:---------:|:----------:|
+| V2 D+A ensemble (baseline) | +1.640 | ~30bp | ~100 | N/A |
+| FNG standalone (2yr) | +0.566 | ~130bp | ~6 | Moderate |
+| FNG standalone (5yr) | +0.651 | ~370bp | ~2.8 | High per-trade |
+| D+A+FNG synthesis | +1.382 | ~30bp | ~100 | **None** (disabled) |
+
+**Verdict:** The reflexivity thesis is **partially validated**. Fear & Greed Index identifies genuine high-edge entry points: 370bp per trade over 5 years, 4/5 years positive, all active windows profitable. The mechanism works — buying after extreme fear washouts captures the subsequent recovery. But:
+
+1. **Too infrequent.** 2.8 trades/year is well below the 10–20 target. The lagged daily FNG only catches ~3 washout events per 5 years that meet all entry conditions.
+2. **No value as D+A overlay.** When combined with V2's higher-frequency signals, the FNG filter provides no marginal improvement — Optuna disables it.
+3. **Fitness below V2.** The fitness metric penalizes sparse strategies (0-trade windows → Sharpe=0 → higher variance), making the +0.651 incomparable to V2's +1.640 which uses denser 91-day windows.
+
+**Root cause:** The FNG is published daily and its most timely component (same-day momentum) is exactly what we must lag away. The 1-day-lagged residual carries less predictive power. Higher-frequency behavioral signals (intraday sentiment, real-time positioning data) might close this gap.
+
+**V2 D+A ensemble (+1.640 with slippage) remains the project best.**
+
+**Next potential directions:**
+1. Long/short ratio (Binance API, more granular positioning than daily FNG)
+2. Intraday sentiment sources (social media volume spikes, Google Trends)
+3. The standalone FNG strategy as a low-frequency portfolio overlay alongside V2
+
 ---
 
 ## 7. Deferred Ideas

@@ -522,6 +522,86 @@ def fetch_perp_ohlcv(
     return fresh[(fresh.index >= since_ts)].copy()
 
 
+# ── Fear & Greed Index (V4 §6.8.13) ──────────────────────────────────────────
+
+def _fetch_fear_greed_api(days: int) -> pd.DataFrame:
+    """Fetch all available Fear & Greed Index data from alternative.me."""
+    import requests as _requests
+
+    url = f"https://api.alternative.me/fng/?limit={days}"
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            resp = _requests.get(url, timeout=30)
+            resp.raise_for_status()
+            raw = resp.json()
+            break
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise RuntimeError(f"Fear & Greed API unreachable after {max_retries} attempts: {e}") from e
+            log.warning("FNG API attempt %d/%d failed: %s", attempt + 1, max_retries, e)
+            time.sleep(3)
+
+    records = []
+    for entry in raw.get("data", []):
+        records.append({
+            "timestamp": pd.Timestamp(int(entry["timestamp"]), unit="s", tz="UTC"),
+            "fng_value": int(entry["value"]),
+        })
+
+    if not records:
+        return pd.DataFrame(columns=["fng_value"])
+
+    df = pd.DataFrame(records).set_index("timestamp").sort_index()
+    df = df[~df.index.duplicated(keep="last")]
+    return df
+
+
+def fetch_fear_greed(days: int = 2920, force_refresh: bool = False) -> pd.DataFrame:
+    """
+    Return a DataFrame of daily Fear & Greed Index values.
+
+    Columns: fng_value (int, 0-100: 0=extreme fear, 100=extreme greed)
+    Index:   UTC-aware DatetimeIndex (daily)
+
+    Data available from Feb 2018 (~2920 days to present).
+    """
+    cache_path = CACHE_DIR / "fear_greed.parquet"
+    now_utc = datetime.now(tz=timezone.utc)
+
+    cached = None if force_refresh else _load_cache(cache_path)
+
+    if cached is not None:
+        age_hours = (now_utc - cached.index.max().to_pydatetime()).total_seconds() / 3600
+        if age_hours < STALE_HOURS * 6:  # daily data, check less frequently
+            log.info("Cache hit for Fear & Greed (%d rows)", len(cached))
+            return cached.copy()
+
+    log.info("Fetching Fear & Greed Index (days=%d)…", days)
+
+    try:
+        fresh = _fetch_fear_greed_api(days)
+    except RuntimeError as e:
+        if cached is not None and not cached.empty:
+            log.warning("FNG API unreachable — using stale cache (%d rows): %s", len(cached), e)
+            return cached.copy()
+        raise
+
+    if fresh.empty:
+        raise RuntimeError("No Fear & Greed data returned")
+
+    if cached is not None and not cached.empty:
+        merged = pd.concat([cached, fresh])
+        merged = merged[~merged.index.duplicated(keep="last")].sort_index()
+    else:
+        merged = fresh
+
+    _save_cache(merged, cache_path)
+    log.info("Fetched and cached %d Fear & Greed entries", len(fresh))
+    return merged.copy()
+
+
 # ── Multi-timeframe augmentation (V3 §6.5.1) ─────────────────────────────────
 
 def augment_with_timeframes(df: pd.DataFrame) -> pd.DataFrame:

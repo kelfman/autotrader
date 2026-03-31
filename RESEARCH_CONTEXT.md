@@ -63,6 +63,8 @@ AUTOTRADER=$(find /sessions -maxdepth 3 -name "Autotrader" -path "*/mnt/*" -type
 | `optimize_params.py` | Bayesian parameter optimization via Optuna TPE (§5.15) |
 | `runs/synthesis_D_A_B_C/` | Stage 2 synthesis with B/C boolean switches (§5.15.6) |
 | `runs/synthesis_D_A/optuna_*.db` | Optuna study storage (SQLite, resumable) |
+| `runs/v4_sociology/strategy.py` | V4 FNG washout standalone strategy (best: +0.651 5yr) |
+| `runs/v4_sociology/strategy_da_fng.py` | V4 D+A+FNG synthesis (FNG disabled by optimizer) |
 
 ---
 
@@ -408,7 +410,23 @@ relative to hourly volatility). May work on lower timeframes or in real-time.
 7. ❌ **V3 MTF results INVALIDATED** — Post-hoc audit found look-ahead bias in `augment_with_timeframes()`: daily close included same-day bars. After fixing (shift d1/h4 features by 1 period) + adding 5bp slippage, BTC 5yr collapses to −32.1% (Sharpe −0.22). The "daily SMA(20) breakthrough" was an artefact of same-day information leakage. V2 D+A ensemble (+1.845) remains the valid project best.
 8. ❌ **MTF re-optimization with lagged features** — 200 Optuna trials with fixed augmentation (shift by 1 period) + 5bp slippage. Best fitness +0.778, well below V2 baseline (+1.640). Daily trend filter adds no genuine value when properly lagged. MTF dead end for now.
 9. ✅ **Look-ahead guard added** — `check_signal_integrity()` in backtest.py detects daily return correlation > 0.15 as FAIL. Default slippage 5bp. Would have caught the MTF bug on first run.
-10. **Next: V3 Phase 2** — Regime switching (§6.5.3) + Strategy portfolio (§6.5.4) building on V2 D+A base (+1.640 with slippage).
+10. ❌ **V3 Phase 2 complete** — Regime switching (+0.409) and strategy portfolio (−21.8% 5yr) both tested and failed (see §6.8.10–12). None of the V3 interventions improve on V2 D+A ensemble.
+11. ✅ **V4 Sociology explored (March 2026)** — Fear & Greed Index integrated into data pipeline. Three approaches:
+    - FNG standalone (2yr): +0.566 fitness, ~130bp/trade, ~6 trades/yr — below V2
+    - FNG standalone (5yr, annual windows): +0.651 fitness, **+370bp/trade**, ~2.8 trades/yr — high edge but too infrequent
+    - D+A+FNG synthesis: +1.382 — **optimizer disabled FNG** (use_fng_entry=false, use_fng_exit=false)
+    - FNG look-ahead caught by integrity guard (daily_return_corr=+0.171), fixed with 1-day lag
+    - **Thesis partially validated:** FNG identifies genuine high-edge entries (370bp/trade, 4/5 years positive), but too rare (2.8/yr) and no marginal value on D+A
+    - V2 D+A ensemble (+1.640 with slippage) remains project best
+
+**Files added/modified:**
+
+| File | Purpose |
+|------|---------|
+| `data.py` | Added `fetch_fear_greed()` with parquet cache |
+| `optimize_params.py` | Added `--augment-fng`, `--days`, `--n-windows`, `--window-days`; `suggest_sociology`, `suggest_da_fng` presets |
+| `runs/v4_sociology/strategy.py` | FNG washout → compression → ignition strategy |
+| `runs/v4_sociology/strategy_da_fng.py` | D+A base with FNG overlay (FNG disabled by optimizer) |
 
 **Unexplored TA ideas (low priority — V1 is at ceiling):**
 

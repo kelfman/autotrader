@@ -1,0 +1,14 @@
+{
+  "fng_washout_level": 24,
+  "fng_washout_lookback": 624,
+  "fng_entry_level": 29,
+  "fng_exit_level": 81,
+  "fr_pct_window": 504,
+  "fr_entry_pct": 0.36910434930020164,
+  "fr_exit_pct": 0.791740463173858,
+  "vol_lookback": 51,
+  "vol_pct_window": 1776,
+  "vol_entry_max_pct": 0.33241413549406446,
+  "sma_period": 120,
+  "exit_lookback": 156
+}

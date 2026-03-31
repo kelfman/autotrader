@@ -46,7 +46,7 @@ import optuna
 import pandas as pd
 
 from backtest import run_backtest
-from data import augment_with_timeframes, fetch_funding_rates, fetch_ohlcv
+from data import augment_with_timeframes, fetch_fear_greed, fetch_funding_rates, fetch_ohlcv
 from evaluate import FitnessResult, evaluate_strategy
 
 log = logging.getLogger(__name__)
@@ -150,6 +150,40 @@ def suggest_d_a_mtf(trial: optuna.Trial) -> dict:
     }
 
 
+def suggest_sociology(trial: optuna.Trial) -> dict:
+    """V4 Sociology: washout → compression → ignition (brief §6.8.13)."""
+    return {
+        # Fear & Greed washout/ignition
+        "fng_washout_level":    trial.suggest_int("fng_washout_level", 15, 45),
+        "fng_washout_lookback": trial.suggest_int("fng_washout_lookback", 48, 720, step=24),
+        "fng_entry_level":      trial.suggest_int("fng_entry_level", 20, 55),
+        "fng_exit_level":       trial.suggest_int("fng_exit_level", 50, 90),
+        # Funding rate
+        "fr_pct_window":        trial.suggest_int("fr_pct_window", 360, 1440, step=24),
+        "fr_entry_pct":         trial.suggest_float("fr_entry_pct", 0.20, 0.80),
+        "fr_exit_pct":          trial.suggest_float("fr_exit_pct", 0.60, 0.95),
+        # Vol regime
+        "vol_lookback":         trial.suggest_int("vol_lookback", 12, 72),
+        "vol_pct_window":       trial.suggest_int("vol_pct_window", 720, 2160, step=24),
+        "vol_entry_max_pct":    trial.suggest_float("vol_entry_max_pct", 0.30, 0.90),
+        # Trend (short periods OK — contrarian entry needs fast confirmation)
+        "sma_period":           trial.suggest_int("sma_period", 24, 384, step=8),
+        # Exit
+        "exit_lookback":        trial.suggest_int("exit_lookback", 24, 168, step=12),
+    }
+
+
+def suggest_da_fng(trial: optuna.Trial) -> dict:
+    """D+A base with FNG behavioral overlay (V4 §6.8.13)."""
+    params = suggest_d_a(trial)
+    params["fng_washout_level"] = trial.suggest_int("fng_washout_level", 20, 50)
+    params["fng_washout_lookback"] = trial.suggest_int("fng_washout_lookback", 168, 720, step=24)
+    params["fng_exit_level"] = trial.suggest_int("fng_exit_level", 60, 90)
+    params["use_fng_entry"] = trial.suggest_categorical("use_fng_entry", [True, False])
+    params["use_fng_exit"] = trial.suggest_categorical("use_fng_exit", [True, False])
+    return params
+
+
 def suggest_d_a_regime(trial: optuna.Trial) -> dict:
     """V3 D+A with regime-switching gate (§6.5.3)."""
     return {
@@ -180,6 +214,8 @@ PRESETS: dict[str, Callable] = {
     "d_a_sized": suggest_d_a_sized,
     "d_a_mtf": suggest_d_a_mtf,
     "d_a_regime": suggest_d_a_regime,
+    "sociology": suggest_sociology,
+    "da_fng": suggest_da_fng,
 }
 
 
@@ -202,6 +238,7 @@ def load_data(
     augment_eth: bool = False,
     augment_basis: bool = False,
     augment_timeframes: bool = False,
+    augment_fng: bool = False,
 ) -> pd.DataFrame:
     """Load and augment OHLCV data once for all trials."""
     df = fetch_ohlcv(symbol, "1h", days=days)
@@ -230,6 +267,15 @@ def load_data(
     if augment_timeframes:
         df = augment_with_timeframes(df)
 
+    if augment_fng:
+        fng = fetch_fear_greed(days=days + 30)
+        # Lag by 1 day to prevent look-ahead: FNG for day D incorporates
+        # that day's price action (momentum, vol inputs). At any bar on
+        # day D, we must only see FNG from day D-1.
+        fng = fng.shift(1, freq="1D")
+        df = df.join(fng, how="left")
+        df["fng_value"] = df["fng_value"].ffill().fillna(50)
+
     return df
 
 
@@ -241,6 +287,8 @@ def make_objective(
     suggest_fn: Callable,
     lambda_penalty: float = 0.5,
     slippage: float = 0.0005,
+    n_windows: int = 5,
+    window_days: int = 91,
 ) -> Callable:
     """Factory for Optuna objective function."""
 
@@ -253,6 +301,8 @@ def make_objective(
                 df=df,
                 lambda_penalty=lambda_penalty,
                 slippage=slippage,
+                n_windows=n_windows,
+                window_days=window_days,
             )
             trial.set_user_attr("mean_sharpe", result.mean_sharpe)
             trial.set_user_attr("std_sharpe", result.std_sharpe)
@@ -279,6 +329,8 @@ def make_robust_objective(
     n_perturbations: int = 3,
     perturbation_pct: float = 0.10,
     slippage: float = 0.0005,
+    n_windows: int = 5,
+    window_days: int = 91,
 ) -> Callable:
     """
     Objective that evaluates base params AND random perturbations.
@@ -297,6 +349,8 @@ def make_robust_objective(
                 compute_signals_fn, base_params, df=df,
                 lambda_penalty=lambda_penalty,
                 slippage=slippage,
+                n_windows=n_windows,
+                window_days=window_days,
             )
             fitnesses = [base_result.fitness]
         except Exception as e:
@@ -327,6 +381,8 @@ def make_robust_objective(
                     compute_signals_fn, perturbed, df=df,
                     lambda_penalty=lambda_penalty,
                     slippage=slippage,
+                    n_windows=n_windows,
+                    window_days=window_days,
                 )
                 fitnesses.append(result.fitness)
             except Exception:
@@ -645,6 +701,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--study-name", type=str, default=None,
                    help="Optuna study name (defaults to preset name)")
     p.add_argument("--symbol", default="BTC/USDT")
+    p.add_argument("--days", type=int, default=730,
+                   help="Total days of history to use (730=2yr, 1825=5yr)")
+    p.add_argument("--n-windows", type=int, default=5,
+                   help="Number of evaluation windows (5 for 2yr, 9 for 5yr)")
+    p.add_argument("--window-days", type=int, default=91,
+                   help="Days per window (91=3mo, 182=6mo, 365=1yr)")
     p.add_argument("--lambda-penalty", type=float, default=0.5)
     p.add_argument("--augment-funding", action="store_true",
                    help="Merge funding rate data (required for D+A)")
@@ -654,6 +716,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Merge perp-spot basis data (required for Track G)")
     p.add_argument("--augment-timeframes", action="store_true",
                    help="Add 4h and 1d resampled columns (required for V3 MTF)")
+    p.add_argument("--augment-fng", action="store_true",
+                   help="Merge Fear & Greed Index data (required for V4 sociology)")
     p.add_argument("--resume", action="store_true",
                    help="Resume an existing study from SQLite storage")
     p.add_argument("--stability-check", action="store_true",
@@ -764,13 +828,15 @@ def main() -> None:
     storage = f"sqlite:///{db_path}"
     suggest_fn = PRESETS[args.preset]
 
-    print(f"Loading data ({args.symbol})...", file=sys.stderr)
+    print(f"Loading data ({args.symbol}, {args.days} days)...", file=sys.stderr)
     df = load_data(
         symbol=args.symbol,
+        days=args.days,
         augment_funding=args.augment_funding,
         augment_eth=args.augment_eth,
         augment_basis=getattr(args, "augment_basis", False),
         augment_timeframes=getattr(args, "augment_timeframes", False),
+        augment_fng=getattr(args, "augment_fng", False),
     )
     print(
         f"Data loaded: {len(df)} bars "
@@ -815,10 +881,14 @@ def main() -> None:
                 compute_signals_fn, df, suggest_fn, args.lambda_penalty,
                 n_perturbations=args.n_perturbations,
                 perturbation_pct=args.perturbation_pct,
+                n_windows=args.n_windows,
+                window_days=args.window_days,
             )
         else:
             objective = make_objective(
-                compute_signals_fn, df, suggest_fn, args.lambda_penalty
+                compute_signals_fn, df, suggest_fn, args.lambda_penalty,
+                n_windows=args.n_windows,
+                window_days=args.window_days,
             )
 
         t0 = time.time()
