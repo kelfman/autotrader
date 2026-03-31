@@ -150,6 +150,7 @@ def evaluate_strategy(
     lambda_penalty: float = DEFAULT_LAMBDA,
     init_cash:      float = 10_000.0,
     fees:           float = 0.001,
+    slippage:       float = 0.0005,
     df:             pd.DataFrame | None = None,   # pass pre-loaded data to skip fetch
 ) -> FitnessResult:
     """
@@ -166,6 +167,7 @@ def evaluate_strategy(
         lambda_penalty:     Variance penalty weight λ (default 0.5).
         init_cash:          Starting portfolio value for each window.
         fees:               Taker fee per trade.
+        slippage:           Additional slippage fraction per trade (default 0.05%).
         df:                 Pre-loaded DataFrame — if None, fetches via data.py.
 
     Returns:
@@ -188,7 +190,10 @@ def evaluate_strategy(
             i, len(windows),
             window.index[0].date(), window.index[-1].date(), len(window),
         )
-        result = run_backtest(window, params, compute_signals_fn, init_cash=init_cash, fees=fees)
+        result = run_backtest(
+            window, params, compute_signals_fn,
+            init_cash=init_cash, fees=fees, slippage=slippage,
+        )
         results.append(result)
         log.info("    %s", result.summary())
 

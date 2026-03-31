@@ -17,6 +17,7 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -24,6 +25,76 @@ import numpy as np
 import pandas as pd
 import vectorbt as vbt
 from vectorbt.portfolio.enums import SizeType
+
+log = logging.getLogger(__name__)
+
+
+# ── Look-ahead bias guard (§6.8.8) ───────────────────────────────────────────
+
+RETURN_CORR_WARN = 0.10
+RETURN_CORR_FAIL = 0.15
+
+
+@dataclass
+class SignalIntegrityResult:
+    daily_return_corr: float
+    status: str            # "clean", "warning", "fail"
+
+    @property
+    def clean(self) -> bool:
+        return self.status == "clean"
+
+    def summary(self) -> str:
+        return f"daily_return_corr={self.daily_return_corr:+.4f} [{self.status.upper()}]"
+
+
+def check_signal_integrity(
+    df: pd.DataFrame,
+    params: dict,
+    compute_signals_fn: Callable,
+    entries: pd.Series,
+    exits: pd.Series,
+) -> SignalIntegrityResult:
+    """
+    Detect look-ahead bias via daily return correlation.
+
+    Resamples entry signals and close prices to daily resolution, then
+    measures the correlation between daily entry rate and same-day returns.
+    A clean strategy's daily entry rate has near-zero correlation with
+    same-day returns (~0.02). Look-ahead bias inflates this because the
+    strategy "sees" today's price direction and enters accordingly (~0.19
+    for the known-broken MTF case).
+
+    Thresholds (calibrated against known clean/broken strategies):
+      < 0.10  clean    (V2 D+A ≈ 0.02, fixed MTF ≈ 0.02)
+      0.10–0.15  warning  (mild momentum bias, investigate)
+      > 0.15  fail     (broken MTF ≈ 0.19, likely look-ahead)
+    """
+    return_corr = 0.0
+    try:
+        daily_entry_rate = entries.astype(float).resample("1D").mean()
+        daily_return = df["close"].resample("1D").last().pct_change()
+        common_idx = daily_entry_rate.dropna().index.intersection(daily_return.dropna().index)
+        if len(common_idx) > 30:
+            return_corr = float(
+                daily_entry_rate.loc[common_idx].corr(daily_return.loc[common_idx])
+            )
+            if not np.isfinite(return_corr):
+                return_corr = 0.0
+    except Exception:
+        return_corr = 0.0
+
+    if abs(return_corr) >= RETURN_CORR_FAIL:
+        status = "fail"
+    elif abs(return_corr) >= RETURN_CORR_WARN:
+        status = "warning"
+    else:
+        status = "clean"
+
+    return SignalIntegrityResult(
+        daily_return_corr=return_corr,
+        status=status,
+    )
 
 
 # ── Result type ───────────────────────────────────────────────────────────────
@@ -63,7 +134,7 @@ def run_backtest(
     compute_signals_fn: Callable,
     init_cash: float = 10_000.0,
     fees: float = 0.001,         # 0.1 % per side — conservative for BTC spot on Binance
-    slippage: float = 0.0,       # set >0 to model market-impact
+    slippage: float = 0.0005,    # 0.05% per side — realistic market impact
 ) -> BacktestResult:
     """
     Run a single backtest over the provided OHLCV window.
@@ -74,26 +145,21 @@ def run_backtest(
         compute_signals_fn: Strategy function with signature (df, params) -> (entries, exits).
         init_cash:          Starting portfolio cash in USD.
         fees:               Taker fee fraction per trade (e.g. 0.001 = 0.1%).
-        slippage:           Additional slippage fraction per trade.
+        slippage:           Additional slippage fraction per trade (default 0.05%).
 
     Returns:
         BacktestResult with performance metrics.
     """
     if len(df) < 50:
-        # Not enough data to produce meaningful indicators
         return _empty_result(df)
 
     # ── signals ───────────────────────────────────────────────────────────────
     try:
         result = compute_signals_fn(df, params)
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error("compute_signals failed: %s", e)
+        log.error("compute_signals failed: %s", e)
         return _empty_result(df)
 
-    # V3 contract: compute_signals may return (entries, exits, size) where
-    # size is a 0.0–1.0 Series representing fraction of capital to allocate.
-    # V1/V2 contract: (entries, exits) — backward compatible, defaults to 1.0.
     size = None
     if isinstance(result, tuple) and len(result) == 3:
         entries, exits, size = result
@@ -103,9 +169,21 @@ def run_backtest(
     entries = entries.fillna(False).astype(bool)
     exits   = exits.fillna(False).astype(bool)
 
-    # Guard: if no entries at all, skip (avoids vbt divide-by-zero on Sharpe)
     if not entries.any():
         return _empty_result(df)
+
+    # ── look-ahead bias guard ─────────────────────────────────────────────────
+    integrity = check_signal_integrity(df, params, compute_signals_fn, entries, exits)
+    if integrity.status == "fail":
+        log.warning(
+            "LOOK-AHEAD DETECTED: %s — signals likely contain future information!",
+            integrity.summary(),
+        )
+    elif integrity.status == "warning":
+        log.info(
+            "LOOK-AHEAD CHECK: %s — mild same-day correlation, investigate if using MTF features",
+            integrity.summary(),
+        )
 
     # ── portfolio simulation ──────────────────────────────────────────────────
     total_fees = fees + slippage

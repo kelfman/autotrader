@@ -216,6 +216,7 @@ def make_objective(
     df: pd.DataFrame,
     suggest_fn: Callable,
     lambda_penalty: float = 0.5,
+    slippage: float = 0.0005,
 ) -> Callable:
     """Factory for Optuna objective function."""
 
@@ -227,6 +228,7 @@ def make_objective(
                 params,
                 df=df,
                 lambda_penalty=lambda_penalty,
+                slippage=slippage,
             )
             trial.set_user_attr("mean_sharpe", result.mean_sharpe)
             trial.set_user_attr("std_sharpe", result.std_sharpe)
@@ -252,6 +254,7 @@ def make_robust_objective(
     lambda_penalty: float = 0.5,
     n_perturbations: int = 3,
     perturbation_pct: float = 0.10,
+    slippage: float = 0.0005,
 ) -> Callable:
     """
     Objective that evaluates base params AND random perturbations.
@@ -269,6 +272,7 @@ def make_robust_objective(
             base_result = evaluate_strategy(
                 compute_signals_fn, base_params, df=df,
                 lambda_penalty=lambda_penalty,
+                slippage=slippage,
             )
             fitnesses = [base_result.fitness]
         except Exception as e:
@@ -298,6 +302,7 @@ def make_robust_objective(
                 result = evaluate_strategy(
                     compute_signals_fn, perturbed, df=df,
                     lambda_penalty=lambda_penalty,
+                    slippage=slippage,
                 )
                 fitnesses.append(result.fitness)
             except Exception:
