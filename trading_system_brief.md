@@ -1572,35 +1572,60 @@ The V2 D+A continuous 2-year backtest with 5bp slippage: **+2.9%** return (Sharp
 
 **None of the V3 Phase 1 interventions improve on the V2 D+A ensemble.** The binding constraint is not strategy expressiveness (what the system can do) — it's signal edge per trade (how much each trade makes relative to its cost). With 5bp slippage and ~100 trades/year, the strategy needs roughly 30bp of edge per trade to break even on friction. The current edge is approximately this threshold, leaving almost no room for structural improvements that don't also increase per-trade profitability.
 
-#### 6.8.13 Implications for Future Work
+#### 6.8.13 Implications and Next Direction
 
-1. **Transaction cost is the ceiling, not strategy structure.** Reducing slippage (maker orders, better execution) would improve results more than any strategy change.
+**What V3 Phase 1 established:**
 
-2. **Lower-frequency strategies would reduce friction drag.** Holding trades for days/weeks instead of hours would dramatically cut the number of trades, shifting the break-even from ~100 trades * 30bp to ~20 trades * 150bp — a much wider edge requirement that's easier to meet.
+1. **Transaction cost is the binding constraint.** With 5bp slippage and ~100 trades/year, the D+A strategy needs ~30bp edge per trade to break even on friction. The current edge is approximately at this threshold. No structural improvement (position sizing, MTF, regime switching, portfolio composition) overcame this because none increased per-trade profitability.
 
-3. **New signal classes remain the most promising direction.** OI with paid data (CoinGlass), on-chain data, or cross-exchange arbitrage signals could provide larger per-trade edge. The funding rate signal works but is thin.
+2. **The automated integrity guard is the lasting infrastructure win.** `check_signal_integrity()` + default 5bp slippage ensures all future results are honest from the start. The MTF look-ahead episode validates the investment.
 
-4. **The automated integrity guard is the lasting infrastructure win.** `check_signal_integrity()` + default 5bp slippage ensures all future results are honest from the start.
+3. **The reducibility thesis produced thin edge.** Funding rates are a genuine structural signal, but structural signals get arbitraged thin precisely because they're systematic and computable. The mechanism is real; the edge is competed away.
+
+**Proposed direction: embrace reflexivity.**
+
+V1–V3 followed the principle "reducibility over reflexivity" — prefer signals that work regardless of what other participants believe. This produced a single thin signal (funding rates, ~30bp/trade). The next phase inverts this thesis: instead of avoiding signals that depend on crowd behaviour, treat crowd behaviour as the primary signal.
+
+The argument: reflexive signals may carry *thicker* edge because modelling human psychology is harder than computing a percentile rank. Structural signals are efficiently priced by quant desks. Sentiment extremes, round-number psychology, and attention spikes are messier, less systematised, and potentially less competed.
+
+**Candidate signal classes (sociology-centric):**
+
+| Signal | Data source | Mechanism | Frequency |
+|--------|------------|-----------|-----------|
+| Sentiment extremes | Fear & Greed Index (alternative.me, free, daily, back to 2018) | Extreme fear = selling exhausted, contrarian entry. Extreme greed = crowded longs, exit. | ~10–20 signals/year |
+| Round-number clustering | OHLCV (existing) | Stop-losses and limit orders cluster at $50k, $60k, $100k. Price bounces or cascades through these levels predictably. | Event-driven |
+| Liquidation cascade | Funding rate + price range (existing) | High leverage + price approaching liquidation bands → forced selling → reversion. | Event-driven |
+| Volume-attention spikes | OHLCV volume (existing) | Abnormal volume = sudden attention. Crowd overreacts → mean-reversion opportunity. | ~30–50/year |
+| TA level confluence | OHLCV (existing) | When RSI oversold + near 200-MA + round number, many participants see the same "buy" setup. The crowd's coordinated action IS the signal. | ~20–40/year |
+| Long/short ratio | Binance API (free) | Extreme long/short imbalance = crowded positioning → mean-reversion pressure. | Continuous |
+
+**Why this might solve the transaction cost problem:**
+
+The current strategy makes ~100 trades/year of ~30bp edge. A sociology-centric approach would make ~10–30 trades/year of larger edge (sentiment extremes produce 2–5% moves). Fewer trades = less friction drag. And the strategy structure shifts from trend-following momentum (which trades frequently) to contrarian mean-reversion (which waits for extremes).
+
+**Key design change:** The new strategy would be fundamentally contrarian — buy fear, sell greed — rather than momentum-following. This is a philosophical inversion from V1–V3 which were all momentum-based (close > SMA, funding not crowded = trend intact).
+
+**Starting point:** Fear & Greed Index as a contrarian entry filter. It's the simplest test: daily data, long history (2018+), no new infrastructure beyond a single API call. If sentiment extremes produce trades with >100bp edge on 5-year data with slippage, the thesis is validated and worth expanding to other sociological signals.
 
 ---
 
 ## 7. Deferred Ideas
 
-Ideas not addressed by the V3 roadmap. Revisit when V3 is operational.
+Ideas not currently on the roadmap.
 
 **Adversarial regime generation.** A second agent generates synthetic market scenarios designed to break the current best strategy. The discovery agent must find approaches robust to both real history and adversarial stress tests.
 
 **Retrieval-augmented strategy memory.** Log all experiments with performance and market conditions. When current conditions resemble a historical period, retrieve strategies that worked then. Case-based reasoning for trading.
 
-**On-chain data.** Exchange flows, whale wallet monitoring, mempool analysis. High signal potential, clear mechanisms, but a fundamentally different data pipeline. Consider after V3 infrastructure is proven.
+**On-chain data.** Exchange flows, whale wallet monitoring, mempool analysis. High signal potential, clear mechanisms, but a fundamentally different data pipeline.
 
-**Open interest (with paid data).** Track F was blocked by Binance's 30-day API limit. A paid data source (CoinGlass, Glassnode) would unlock the most promising untested signal class. Consider when the Research Director identifies OI as a priority.
+**Open interest (with paid data).** Track F was blocked by Binance's 30-day API limit. A paid data source (CoinGlass, Glassnode) would unlock the most promising untested signal class.
 
-**Short selling.** Long-only through V1–V3. Short strategies add complexity to position sizing, risk management, and regime classification. Defer until long-only regime switching is validated.
+**Short selling.** Long-only through V1–V3. Short strategies add complexity to position sizing, risk management, and regime classification.
 
-**Multi-asset expansion.** BTC-only through V3. Cross-asset portfolios (BTC + ETH + SOL) with correlated/anti-correlated allocation. Defer until single-asset portfolio management (§6.5.4) is working.
+**Multi-asset expansion.** BTC-only through V3. Cross-asset portfolios (BTC + ETH + SOL) with correlated/anti-correlated allocation.
 
-**Live execution.** Paper-trading or shadow-trading against real prices. Requires latency management, order routing, risk limits, and monitoring. The natural next step after V3 produces a strategy with acceptable drawdown characteristics.
+**Live execution.** Paper-trading or shadow-trading against real prices. Requires latency management, order routing, risk limits, and monitoring. The natural next step after the system produces a strategy with acceptable drawdown characteristics and edge > friction.
 
 ---
 
