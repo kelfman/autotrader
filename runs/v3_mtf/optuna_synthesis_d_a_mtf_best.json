@@ -1,15 +1,15 @@
 {
-  "d1_sma_period": 20,
-  "h4_sma_period": 130,
+  "d1_sma_period": 160,
+  "h4_sma_period": 20,
   "use_h4_confirmation": false,
-  "fr_pct_window": 504,
-  "fr_entry_pct": 0.6721068281817141,
-  "fr_exit_pct": 0.8777042329013899,
-  "exit_lookback": 51,
-  "vol_lookback": 34,
-  "vol_pct_window": 984,
-  "vol_entry_pct": 0.7678226933760951,
-  "vol_exit_pct": 0.6802084783811696,
+  "fr_pct_window": 576,
+  "fr_entry_pct": 0.7784113450193686,
+  "fr_exit_pct": 0.7583691331488234,
+  "exit_lookback": 60,
+  "vol_lookback": 63,
+  "vol_pct_window": 768,
+  "vol_entry_pct": 0.5396213818655777,
+  "vol_exit_pct": 0.8689214941900638,
   "use_d1_vol_exit": false,
-  "d1_vol_exit_pct": 0.8319793657372336
+  "d1_vol_exit_pct": 0.8089907689096595
 }

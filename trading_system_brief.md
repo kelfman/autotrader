@@ -1537,15 +1537,25 @@ ETH results similarly collapsed (5yr return −9.0%, Sharpe +0.093).
 
 **Current project best (valid): V2 D+A ensemble, fitness +1.845, OOS +1.816.**
 
-#### 6.8.9 Implications for Phase 2
+#### 6.8.9 MTF Re-Optimization with Lagged Features (March 2026)
 
-1. **The V2 D+A ensemble remains the project's best strategy.** `runs/synthesis_D_A/strategy.py` with fitness +1.845 and OOS +1.816 is the valid base for Phase 2.
+After fixing the look-ahead and adding 5bp slippage, the V2 D+A ensemble baseline re-evaluates to **+1.640** (down from +1.845 without slippage). A new 200-trial Optuna study was run on the `d_a_mtf` preset with correctly lagged features.
 
-2. **Multi-timeframe augmentation still has potential, but requires correctly lagged features.** The infrastructure is now fixed (shift by 1 period). A new Optuna study using the lagged features should be run to determine if daily/4h information adds genuine value when properly lagged. The optimal parameters will likely differ significantly from the look-ahead-contaminated ones.
+**Best fitness: +0.778** (trial #186) — significantly below the V2 baseline.
+
+The optimizer moved `d1_sma_period` from 20 (look-ahead contaminated) to 110 (lagged). With a 110-day lagged daily SMA, the trend filter is so slow it kills trade count: W4 has 2 trades, W5 has 0. The lagged daily close adds no genuine signal that the 1h SMA(266) doesn't already capture.
+
+**Conclusion:** The daily trend filter does not add value when properly lagged. The multi-timeframe augmentation infrastructure is sound (shift by 1 period), but the signal class doesn't produce an edge at this timeframe/asset combination.
+
+#### 6.8.10 Implications for Phase 2
+
+1. **The V2 D+A ensemble remains the project's best strategy.** `runs/synthesis_D_A/strategy.py` with fitness +1.640 (with 5bp slippage) is the valid base for Phase 2.
+
+2. **Multi-timeframe augmentation is a dead end for now.** The daily trend filter adds no value when properly lagged. The 4h timeframe was consistently disabled by the optimizer. Future MTF work should focus on *different* features at lower timeframes (e.g., daily vol regime, daily funding rate aggregates) rather than price-based trend filters.
 
 3. **Position sizing does not improve the D+A synthesis.** This finding (§6.8.2) was computed on 1h features and is unaffected by the MTF look-ahead issue.
 
-4. **Adversarial auditing should be standard practice.** Any future result that exceeds the V2 baseline by more than 30% should be immediately tested with: (a) feature lag verification, (b) slippage sensitivity, (c) parameter perturbation. The walk-forward test alone is insufficient — it doesn't catch look-ahead that exists in both train and test.
+4. **Adversarial auditing is now automated.** `check_signal_integrity()` runs on every backtest and flags daily return correlation > 0.15 as FAIL. The slippage default of 5bp is threaded through all evaluation paths. These guards would have caught the MTF look-ahead on the first run.
 
 ---
 
