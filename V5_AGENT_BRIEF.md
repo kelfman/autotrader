@@ -576,57 +576,149 @@ The agent's ANALYZE layer proposes entries, exits, stop levels, and sizes. The E
 
 ---
 
-## 11. Build Sequence
+## 11. Interfaces and Parallel Build
 
-### Phase 0 — Foundation
-- New repo with clean structure
-- Port data pipeline (OHLCV, funding, FNG). Add BTC dominance data source.
-- Chart rendering: HTML template with TradingView Lightweight Charts + Puppeteer/Playwright headless capture. Support for candlesticks, volume, and annotation overlays (S/R lines, FVG zones, order blocks, liquidity clusters). Output: multi-timeframe PNGs (weekly, daily, 4h, 1h) from OHLCV data.
-- Market structure detection: code to identify key levels, FVGs, order blocks, and liquidity zones from OHLCV data. These feed into chart annotations and text summaries.
-- Define the journal schema and storage (JSONL or SQLite)
-- Define the experiment schema (§6.3) and storage
-- Define the playbook format (markdown or structured YAML)
-- Write the initial playbook seeded with V1–V4 knowledge
-- **Event-driven simulation engine (§8.2):** time cursor that advances through historical data, enforces the strict no-future-data constraint, manages journal/playbook accumulation, and triggers macro context/screen/analyze/review at simulated intervals. This is the core backtest infrastructure — build it early so every subsequent phase can be validated on historical data before going live.
+The layers are designed to be decoupled enough to build and test independently. Define the interfaces first, then build each component against mocks of its dependencies.
 
-### Phase 1 — Simulation Validation
-- Implement MACRO CONTEXT layer (daily: BTC weekly/daily charts + BTC.D + sentiment → cached briefing)
-- Implement the SCREEN layer (numeric checks, no LLM)
-- Implement the ANALYZE layer (LLM reads macro context + setup charts + playbook, outputs decision)
-- Implement RECORD (write journal entries)
-- **Run on historical data first** using the simulation engine. Start with a 3-month chunk using a cheaper model to validate the pipeline end-to-end: does the time cursor work? Are charts rendered correctly at each point? Is future data properly excluded? Does the journal accumulate correctly?
-- Run future data audit (§8.5) to verify no look-ahead
+### 11.1 Interface contracts
+
+```
+MarketSnapshot
+  OHLCV data up to a point in time (multiple assets, multiple timeframes)
+  Funding rates, FNG, BTC dominance at that point
+  Produced by: Data Pipeline
+  Consumed by: everything
+
+StructuralFeatures
+  Key S/R levels, FVG zones, order blocks, liquidity clusters
+  Produced by: Market Structure Detection
+  Consumed by: Chart Renderer (as annotations), Screen, text summaries
+
+ChartImage[]
+  Annotated PNG renders at multiple timeframes
+  Produced by: Chart Renderer (snapshot + annotations → images)
+  Consumed by: Macro Context, Analyze
+
+MacroBriefing
+  ~200-word cached text: big picture, regime, BTC.D, sentiment
+  Produced by: Macro Context layer (weekly/daily charts + sentiment → LLM)
+  Consumed by: Analyze (prepended to every analysis)
+
+Decision
+  { action: entry/exit/wait, conviction, rationale, stop, target, size }
+  Produced by: Analyze layer
+  Consumed by: Execute, Record
+
+Order
+  Validated decision that passed risk checks, ready for exchange
+  Produced by: Execute layer
+  Consumed by: Exchange API (live) or portfolio sim (backtest)
+
+JournalEntry
+  Structured record of observation + decision + outcome + lesson
+  Produced by: Record layer
+  Consumed by: Review, journal retrieval, oversight
+
+PlaybookUpdate
+  Proposed changes to the playbook: new rules, revised confidence, pruned rules
+  Produced by: Review layer
+  Consumed by: Playbook (applied after human approval in early phases)
+
+ExperimentProposal
+  Hypothesis, change, scope, duration, success criteria
+  Produced by: Review / Oversight
+  Consumed by: Experiment tracker
+```
+
+### 11.2 What can be built in parallel
+
+Each of these workstreams depends only on the interface contracts above, not on each other's implementation. They can all be built and tested against mocks/stubs simultaneously.
+
+| Workstream | Builds | Depends on (interface only) | Can mock |
+|-----------|--------|---------------------------|----------|
+| **A: Data + Charts** | Data pipeline, chart renderer, BTC.D source | — | Nothing to mock — this is the foundation |
+| **B: Market Structure** | S/R detection, FVG detection, order blocks, liquidity zones | MarketSnapshot | Feed it sample OHLCV data |
+| **C: Screen** | Numeric screening logic, trigger conditions | MarketSnapshot, StructuralFeatures | Feed it snapshots, check trigger/no-trigger |
+| **D: Macro Context** | LLM prompt design, briefing generation, caching | ChartImage[] | Use pre-rendered sample charts |
+| **E: Analyze** | LLM prompt design, decision output parsing, conviction grading | MacroBriefing, ChartImage[], Playbook, JournalEntry[] | Mock all inputs with sample data |
+| **F: Execute** | Risk validation, order construction, portfolio simulation | Decision | Feed it sample decisions, verify rule enforcement |
+| **G: Record + Journal** | Journal schema, storage, retrieval (embedding or structured) | Decision | Write/read sample entries |
+| **H: Review + Oversight** | Review prompt design, playbook update logic, drift detection, experiment lifecycle | JournalEntry[], Playbook | Feed it a sample journal, check outputs |
+| **I: Simulation Engine** | Time cursor, orchestration, future-data enforcement | All interfaces (but calls them abstractly) | Stub every layer, test the orchestration logic |
+| **J: Playbook** | Format, versioning, read/write, initial V1–V4 seed content | — | Standalone |
+
+**Workstreams A, B, F, G, J** have no LLM dependency — they're pure code and can be built and fully tested without any API calls.
+
+**Workstreams D, E, H** are LLM-dependent but can be iterated on sample inputs independently of each other. The prompt design for Macro Context doesn't depend on the Analyze prompt being done, and vice versa.
+
+**Workstream I (simulation engine)** is the integration layer. It calls every other component through the interfaces. Build it with stubs that return hardcoded results, then swap in real implementations as they're completed. The orchestration logic (time cursor, scheduling, data windowing) is testable without any real components.
+
+### 11.3 Integration sequence
+
+Once components are built independently, integrate in this order:
+
+```
+Step 1: A (data) + B (structure) + J (playbook)
+        → Can render annotated charts and produce text summaries from real data
+
+Step 2: + C (screen) + G (journal)
+        → Can screen market data and store decisions
+
+Step 3: + D (macro) + E (analyze) + F (execute)
+        → Full trading loop works end-to-end (on sample data, manually triggered)
+
+Step 4: + I (simulation engine)
+        → Can run the full loop on historical data with time cursor
+
+Step 5: + H (review + oversight)
+        → Learning loop closes — agent improves during simulation runs
+```
+
+Each step is independently testable before proceeding to the next.
+
+---
+
+## 12. Build Phases
+
+With the parallel workstreams defined, the build phases become about integration milestones rather than sequential construction.
+
+### Phase 0 — Interfaces + Parallel Build
+- Define all interface contracts (§11.1) as types/schemas in code
+- Set up new repo with directory structure matching the workstreams
+- Kick off all 10 workstreams in parallel
+- **Exit criteria:** each workstream has a working implementation that passes tests against mocked inputs/outputs
+
+### Phase 1 — Integration + Simulation Validation
+- Integrate workstreams per §11.3 (steps 1–4)
+- Run the simulation engine over a 3-month historical chunk with a cheaper model
+- Validate: time cursor correct? Charts render at each point? Future data excluded? Journal accumulates?
+- Run future data audit (§8.5)
 - Manual review of simulation decisions for sanity
+- **Exit criteria:** end-to-end simulation runs without errors, future data audit passes
 
 ### Phase 2 — Paper Trading + Learning Loop
-- Point the system at live data. Same architecture, same agent, but now watching the real market in real time.
-- Implement post-trade debrief (automatic journal completion)
-- Implement weekly REVIEW (LLM reads journal, proposes playbook updates)
-- Implement oversight checks (§6.2) within the weekly review — is the agent stuck, drifting, miscalibrated?
-- Implement experiment lifecycle (§6.3) — propose, run, review, adopt/reject
-- Implement journal retrieval (find similar past situations)
+- Integrate step 5 (review + oversight)
+- Point the system at live data — same architecture, now watching the real market
 - Run for 4–8 weeks of paper trading with learning + oversight active
 - Track confidence calibration metrics and drift indicators (§6.4)
-- **Cross-validate:** run the simulation engine over the same period using recorded market data and compare simulated decisions to live paper-trading decisions. They should broadly agree — if they don't, something is wrong with either the simulation or the live system.
+- Cross-validate: run simulation over the same period and compare to live decisions
+- **Exit criteria:** agent has accumulated 30+ paper trades, learning curve shows improvement
 
 ### Phase 3 — Full Backtest + Validation
-- Run the full simulation over 2+ years of historical data with learning active
-- Analyze: does trade quality improve over time? (learning curve)
+- Run full simulation over 2+ years of historical data with learning active
 - Compare to random baseline (§8.5)
-- Check regime diversity — is edge concentrated in one condition?
-- Review playbook evolution — is it learning useful things or accumulating noise?
-- Examine individual trades for confabulation / hindsight bias
-- Decide whether to proceed to live trading
+- Check regime diversity, playbook evolution, individual trade quality
+- **Exit criteria:** demonstrably beats random, edge not concentrated in one regime, playbook converged on simplicity
 
 ### Phase 4 — Live Trading (if Phase 3 passes)
-- Implement EXECUTE layer with exchange integration
+- Implement exchange integration in Execute layer
 - Hard risk management guardrails (no LLM in execution path)
 - Start with minimal position sizes
 - Gradually increase as track record builds
 
 ---
 
-## 12. Open Questions
+## 13. Open Questions
 
 1. **Which LLM?** Frontier models (Claude, GPT-4) reason better but cost more. Smaller models are cheaper but may miss nuance. The screening layer needs nothing; the analysis layer needs the best reasoning available; the review layer is infrequent enough to use frontier.
 
